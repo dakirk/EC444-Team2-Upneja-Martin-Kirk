@@ -65,7 +65,7 @@ void mcpwm_example_servo_control(void *arg)
             angle = servo_per_degree_init(count);
             printf("pulse width: %dus\n", angle);
             mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
-            vTaskDelay(1000);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
+            vTaskDelay(3600000);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
         }
     }
 }
