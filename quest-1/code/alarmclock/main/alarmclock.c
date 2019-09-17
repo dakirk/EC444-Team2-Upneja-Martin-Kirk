@@ -38,7 +38,7 @@
 #define NACK_VAL                           0xFF // i2c nack value
 
 int direction = 1; // 1 for up, -1 for down
-int alarm;
+int alarmSetting;
 int current;
 
 // Function to initiate i2c -- note the MSB declaration!
@@ -149,6 +149,42 @@ int set_brightness_max(uint8_t val) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+void process_input() {
+    char time[5];
+    char chrs[3];
+    char cmins[3];
+    int hrs;
+    int mins;
+
+    printf("Enter A for alarm set, T for time set\n");
+    char mode;
+    gets(mode);
+
+    if (mode == 'A') {
+        printf("Enter alarm time in military time\n");
+        gets(time);
+        chrs[0] = time[0];
+        chrs[1] = time[1];
+        cmins[0] = time[2];
+        cmins[1] = time[3];
+        hrs = atoi(chrs);
+        mins = atoi(cmins);
+        alarmSetting = (hrs*3600) + (mins*60);
+    } else if (mode == 'T'){
+        printf("Enter current time in military time\n");
+        gets(time);
+        chrs[0] = time[0];
+        chrs[1] = time[1];
+        cmins[0] = time[2];
+        cmins[1] = time[3];
+        hrs = atoi(chrs);
+        mins = atoi(cmins);
+        current = (hrs*3600) + (mins*60);
+    } else {
+        printf("Invalid entry.");
+    }
+}
 
 static void test_alpha_display() {
 
