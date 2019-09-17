@@ -38,6 +38,8 @@
 #define NACK_VAL                           0xFF // i2c nack value
 
 int direction = 1; // 1 for up, -1 for down
+int alarm;
+int current;
 
 // Function to initiate i2c -- note the MSB declaration!
 static void i2c_example_master_init(){
