@@ -1,0 +1,18 @@
+{
+    "project_name":       "bootloader",
+    "project_path":       "/Users/ayushupneja/Desktop/EC444/esp-idf/components/bootloader/subproject",
+    "build_dir":          "/Users/ayushupneja/Desktop/EC444/Team2-Upneja-Martin-Kirk/quest-1/code/servo/build/bootloader",
+    "config_file":        "/Users/ayushupneja/Desktop/EC444/Team2-Upneja-Martin-Kirk/quest-1/code/servo/sdkconfig",
+    "config_defaults":    "",
+    "app_elf":            "bootloader.elf",
+    "app_bin":            "bootloader.bin",
+    "git_revision":       "v4.1-dev-141-ga7e8d87d3-dirty",
+    "phy_data_partition": "",
+    "monitor_baud" : "115200",
+    "config_environment" : {
+        "COMPONENT_KCONFIGS" : "/Users/ayushupneja/Desktop/EC444/esp-idf/components/efuse/Kconfig;/Users/ayushupneja/Desktop/EC444/esp-idf/components/esp32/Kconfig;/Users/ayushupneja/Desktop/EC444/esp-idf/components/esp_common/Kconfig;/Users/ayushupneja/Desktop/EC444/esp-idf/components/log/Kconfig;/Users/ayushupneja/Desktop/EC444/esp-idf/components/spi_flash/Kconfig",
+        "COMPONENT_KCONFIGS_PROJBUILD" : "/Users/ayushupneja/Desktop/EC444/esp-idf/components/bootloader/Kconfig.projbuild;/Users/ayushupneja/Desktop/EC444/esp-idf/components/esptool_py/Kconfig.projbuild;/Users/ayushupneja/Desktop/EC444/esp-idf/components/partition_table/Kconfig.projbuild"
+    },
+    "build_components" : [ "bootloader", "bootloader_support", "efuse", "esp32", "esp_common", "esp_rom", "esptool_py", "log", "main", "micro-ecc", "partition_table", "soc", "spi_flash", "xtensa", "" ],
+    "build_component_paths" : [ "/Users/ayushupneja/Desktop/EC444/esp-idf/components/bootloader", "/Users/ayushupneja/Desktop/EC444/esp-idf/components/bootloader_support", "/Users/ayushupneja/Desktop/EC444/esp-idf/components/efuse", "/Users/ayushupneja/Desktop/EC444/esp-idf/components/esp32", "/Users/ayushupneja/Desktop/EC444/esp-idf/components/esp_common", "/Users/ayushupneja/Desktop/EC444/esp-idf/components/esp_rom", "/Users/ayushupneja/Desktop/EC444/esp-idf/components/esptool_py", "/Users/ayushupneja/Desktop/EC444/esp-idf/components/log", "/Users/ayushupneja/Desktop/EC444/esp-idf/components/bootloader/subproject/main", "/Users/ayushupneja/Desktop/EC444/esp-idf/components/bootloader/subproject/components/micro-ecc", "/Users/ayushupneja/Desktop/EC444/esp-idf/components/partition_table", "/Users/ayushupneja/Desktop/EC444/esp-idf/components/soc", "/Users/ayushupneja/Desktop/EC444/esp-idf/components/spi_flash", "/Users/ayushupneja/Desktop/EC444/esp-idf/components/xtensa", "" ]
+}
