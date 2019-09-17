@@ -38,6 +38,9 @@
 #define NACK_VAL                           0xFF // i2c nack value
 
 int direction = 1; // 1 for up, -1 for down
+int alarmSetting;
+int current;
+
 
 // Function to initiate i2c -- note the MSB declaration!
 static void i2c_example_master_init(){
@@ -71,6 +74,22 @@ static void i2c_example_master_init(){
 }
 
 // Utility  Functions //////////////////////////////////////////////////////////
+
+//given empty 4-char string outputTime, fills with given hours and mins
+void formatTime(char outputTime[], int secondsSinceMidnight) {
+
+  char hours[3];
+  char mins[3];
+
+  int intHours = current / 3600;
+  int intMins = (current / 60) % 60;
+
+  itoa(intHours, hours, 10);
+  itoa(intMins, mins, 10);
+
+  strcpy(outputTime, hours);
+  strcat(outputTime, mins);
+}
 
 // Utility function to test for I2C device address -- not used in deploy
 int testConnection(uint8_t devAddr, int32_t timeout) {
