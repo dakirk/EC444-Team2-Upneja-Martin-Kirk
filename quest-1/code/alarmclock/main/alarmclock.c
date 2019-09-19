@@ -50,7 +50,7 @@ static void led_counter();
 
 int direction = 1; // 1 for up, -1 for down
 int alarmSetting = 0;
-int current = 0;
+int currentTime = 0;
 int alarm_flag = 0;
 
 // Timer Functions //////////////////////////////////////////////////////////
@@ -116,14 +116,14 @@ static void timer_evt_task(void *arg) {
 
         // Do something if triggered!
         if (evt.flag == 1) {
-            printf("Time: %d\n", current);
+            printf("Time: %d\n", currentTime);
 
             led_counter();
 
-            if (current > 86400) {
-              current = 0;
+            if (currentTime > 86400) {
+              currentTime = 0;
             } else {
-              current++;
+              currentTime++;
             }
         }
     }
@@ -168,8 +168,8 @@ void formatTime(char outputTime[], int secondsSinceMidnight) {
   char hours[8];
   char mins[8];
 
-  int intHours = current / 3600;
-  int intMins = (current / 60) % 60;
+  int intHours = currentTime / 3600;
+  int intMins = (currentTime / 60) % 60;
 
   //itoa(intHours, hours, 10);
   //itoa(intMins, mins, 10);
@@ -280,7 +280,7 @@ void process_input() {
         mins = atoi(cmins);
         alarmSetting = (hrs*3600) + (mins*60);
     } else if (mode == 'T'){
-        printf("Enter current time in military time\n");
+        printf("Enter currentTime time in military time\n");
         gets(time);
         chrs[0] = time[0];
         chrs[1] = time[1];
@@ -288,14 +288,14 @@ void process_input() {
         cmins[1] = time[3];
         hrs = atoi(chrs);
         mins = atoi(cmins);
-        current = (hrs*3600) + (mins*60);
+        currentTime = (hrs*3600) + (mins*60);
     } else {
         printf("Invalid entry.");
     }
 }
 
 void flag_alarm() {
-  if (current == alarmSetting) {
+  if (currentTime == alarmSetting) {
     alarm_flag = 1;
   } else {
     alarm_flag = 0;
@@ -336,8 +336,8 @@ static void test_alpha_display() {
       int i = 0;
       char timeStr[5];
 
-      formatTime(timeStr, current);
-      //printf("%s, %d\n", timeStr, current);
+      formatTime(timeStr, currentTime);
+      //printf("%s, %d\n", timeStr, currentTime);
 
       /*
       //set display direction
@@ -402,10 +402,10 @@ static void led_init() {
 
 static void led_counter() {
 
-  gpio_set_level(A9, (current % 4 == 0));
-  gpio_set_level(A8, (current % 4 == 1));
-  gpio_set_level(A7, (current % 4 == 2));
-  gpio_set_level(A6, (current % 4 == 3));
+  gpio_set_level(A9, (currentTime % 4 == 0));
+  gpio_set_level(A8, (currentTime % 4 == 1));
+  gpio_set_level(A7, (currentTime % 4 == 2));
+  gpio_set_level(A6, (currentTime % 4 == 3));
 
 }
 
