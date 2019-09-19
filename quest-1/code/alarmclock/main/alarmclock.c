@@ -7,12 +7,17 @@
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
 #include "driver/gpio.h"
 #include "esp_attr.h"
 #include "sdkconfig.h"
 #include "driver/uart.h"
-#include "esp_vfs_dev.h"
 #include "driver/i2c.h"
+#include "driver/periph_ctrl.h"
+#include "driver/timer.h"
+#include "esp_vfs_dev.h"
+#include "esp_types.h"
+#include "sdkconfig.h"
 #include "displaychars.h"
 #include "pins.h"
 #include "driver/mcpwm.h"
@@ -40,9 +45,93 @@
 #define ACK_VAL                            0x00 // i2c ack value
 #define NACK_VAL                           0xFF // i2c nack value
 
+#define TIMER_DIVIDER         16    //  Hardware timer clock divider
+#define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)  // to seconds
+#define TIMER_INTERVAL_SEC   (1)    // Sample test interval for the first timer
+#define TEST_WITH_RELOAD      1     // Testing will be done with auto reload
+
+static void led_counter();
+
 int direction = 1; // 1 for up, -1 for down
-int alarm;
-int current;
+int alarmSetting = 0;
+int currentTime = 0;
+int alarm_flag = 0;
+
+// Timer Functions //////////////////////////////////////////////////////////
+
+// A simple structure to pass "events" to main task
+typedef struct {
+    int flag;     // flag for enabling stuff in main code
+} timer_event_t;
+
+// Initialize queue handler for timer-based events
+xQueueHandle timer_queue;
+
+// ISR handler
+void IRAM_ATTR timer_group0_isr(void *para) {
+
+    // Prepare basic event data, aka set flag
+    timer_event_t evt;
+    evt.flag = 1;
+
+    // Clear the interrupt, Timer 0 in group 0
+    TIMERG0.int_clr_timers.t0 = 1;
+
+    // After the alarm triggers, we need to re-enable it to trigger it next time
+    TIMERG0.hw_timer[TIMER_0].config.alarm_en = TIMER_ALARM_EN;
+
+    // Send the event data back to the main program task
+    xQueueSendFromISR(timer_queue, &evt, NULL);
+}
+
+// Initialize timer 0 in group 0 for 1 sec alarm interval and auto reload
+static void alarm_init() {
+    /* Select and initialize basic parameters of the timer */
+    timer_config_t config;
+    config.divider = TIMER_DIVIDER;
+    config.counter_dir = TIMER_COUNT_UP;
+    config.counter_en = TIMER_PAUSE;
+    config.alarm_en = TIMER_ALARM_EN;
+    config.intr_type = TIMER_INTR_LEVEL;
+    config.auto_reload = TEST_WITH_RELOAD;
+    timer_init(TIMER_GROUP_0, TIMER_0, &config);
+
+    // Timer's counter will initially start from value below
+    timer_set_counter_value(TIMER_GROUP_0, TIMER_0, 0x00000000ULL);
+
+    // Configure the alarm value and the interrupt on alarm
+    timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, TIMER_INTERVAL_SEC * TIMER_SCALE);
+    timer_enable_intr(TIMER_GROUP_0, TIMER_0);
+    timer_isr_register(TIMER_GROUP_0, TIMER_0, timer_group0_isr,
+        (void *) TIMER_0, ESP_INTR_FLAG_IRAM, NULL);
+
+    // Start timer
+    timer_start(TIMER_GROUP_0, TIMER_0);
+}
+
+// The main task of this example program
+static void timer_evt_task(void *arg) {
+    while (1) {
+        // Create dummy structure to store structure from queue
+        timer_event_t evt;
+
+        // Transfer from queue
+        xQueueReceive(timer_queue, &evt, portMAX_DELAY);
+
+        // Do something if triggered!
+        if (evt.flag == 1) {
+            printf("Time: %d\n", currentTime);
+
+            led_counter();
+
+            if (currentTime > 86400) {
+              currentTime = 0;
+            } else {
+              currentTime++;
+            }
+        }
+    }
+}
 
 
 
@@ -174,6 +263,26 @@ static void i2c_example_master_init(){
 
 // Utility  Functions //////////////////////////////////////////////////////////
 
+//given empty 4-char string outputTime, fills with given hours and mins
+void formatTime(char outputTime[], int secondsSinceMidnight) {
+
+  char hours[8];
+  char mins[8];
+
+  int intHours = currentTime / 3600;
+  int intMins = (currentTime / 60) % 60;
+
+  //itoa(intHours, hours, 10);
+  //itoa(intMins, mins, 10);
+  sprintf(hours, "%02d", intHours);
+  sprintf(mins, "%02d", intMins);
+
+  strcpy(outputTime, hours);
+  strcat(outputTime, mins);
+
+  //printf("concatenated: %s hours: %d mins: %d\n", outputTime, intHours, intMins);
+}
+
 // Utility function to test for I2C device address -- not used in deploy
 int testConnection(uint8_t devAddr, int32_t timeout) {
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
@@ -250,6 +359,60 @@ int set_brightness_max(uint8_t val) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+void process_input() {
+    char time[5];
+    char chrs[3];
+    char cmins[3];
+    int hrs;
+    int mins;
+
+    printf("Enter A for alarm set, T for time set\n");
+    char mode;
+    gets(mode);
+
+    if (mode == 'A') {
+        printf("Enter alarm time in military time\n");
+        gets(time);
+        chrs[0] = time[0];
+        chrs[1] = time[1];
+        cmins[0] = time[2];
+        cmins[1] = time[3];
+        hrs = atoi(chrs);
+        mins = atoi(cmins);
+        alarmSetting = (hrs*3600) + (mins*60);
+    } else if (mode == 'T'){
+        printf("Enter currentTime time in military time\n");
+        gets(time);
+        chrs[0] = time[0];
+        chrs[1] = time[1];
+        cmins[0] = time[2];
+        cmins[1] = time[3];
+        hrs = atoi(chrs);
+        mins = atoi(cmins);
+        currentTime = (hrs*3600) + (mins*60);
+    } else {
+        printf("Invalid entry.");
+    }
+}
+
+void flag_alarm() {
+  if (currentTime == alarmSetting) {
+    alarm_flag = 1;
+  } else {
+    alarm_flag = 0;
+  }
+}
+
+void run_alarm() {
+  if (alarm_flag == 1) {
+    gpio_set_level(13, 1);
+    vTaskDelay(10000 / portTICK_PERIOD_MS);
+    alarm_flag = 0;
+  } else {
+    gpio_set_level(13, 0);
+  }
+}
+
 static void test_alpha_display() {
 
 
@@ -272,18 +435,22 @@ static void test_alpha_display() {
 
       uint16_t displaybuffer[8];
       int i = 0;
-      char dirStr[5];
+      char timeStr[5];
 
+      formatTime(timeStr, currentTime);
+      //printf("%s, %d\n", timeStr, currentTime);
+
+      /*
       //set display direction
       if (direction == -1) {
         strcpy(dirStr, "DOWN");
       } else {
         strcpy(dirStr, "UP  ");
-      }
+      }*/
 
       //put in display buffer
-      while (i < 4 && dirStr[i] != '\0') {
-        displaybuffer[i] = alphafonttable[(int)dirStr[i]];
+      while (i < 4 && timeStr[i] != '\0') {
+        displaybuffer[i] = alphafonttable[(int)timeStr[i]];
         ++i;
       }
 
@@ -312,26 +479,14 @@ static void test_alpha_display() {
 
 }
 
+// Init  Functions //////////////////////////////////////////////////////////
+
 //initialize input pin
 static void button_init() {
   gpio_pad_select_gpio(A2);
   gpio_set_direction(A2, GPIO_MODE_INPUT);
 }
 
-//change direction when button pressed (input to A2)
-static void button_dir_switch() {
-
-  while(1) {
-    int button_pressed = gpio_get_level(A2);
-
-    if (button_pressed) {
-      direction *= -1; //switch direction
-      //printf("Direction switched!\n");
-      vTaskDelay(500 / portTICK_PERIOD_MS); //delay, serving as primitive debouncer
-    }
-  }
-
-}
 
 //set up LED output
 static void led_init() {
@@ -348,51 +503,39 @@ static void led_init() {
 
 static void led_counter() {
 
-  int count = 0;
-  //int i;
-
-  while(1) {
-    if (count > 15) {
-      count = 0;
-    }
-
-    if (count < 0) {
-      count = 15;
-    }
-
-
-    gpio_set_level(A9, ((count >> 0) & 1));
-    gpio_set_level(A8, ((count >> 1) & 1));
-    gpio_set_level(A7, ((count >> 2) & 1));
-    gpio_set_level(A6, ((count >> 3) & 1));
-
-    count += direction;
-
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-
-  }
+  gpio_set_level(A9, (currentTime % 4 == 0));
+  gpio_set_level(A8, (currentTime % 4 == 1));
+  gpio_set_level(A7, (currentTime % 4 == 2));
+  gpio_set_level(A6, (currentTime % 4 == 3));
 
 }
 
 void app_main() {
 
-    /* Install UART driver for interrupt-driven reads and writes */
-    ESP_ERROR_CHECK( uart_driver_install(UART_NUM_0,
-      256, 0, 0, NULL, 0) );
+  // Create a FIFO queue for timer-based
+  timer_queue = xQueueCreate(10, sizeof(timer_event_t));
 
-    /* Tell VFS to use UART driver */
-    esp_vfs_dev_uart_use_driver(UART_NUM_0);
+  /* Install UART driver for interrupt-driven reads and writes */
+  ESP_ERROR_CHECK( uart_driver_install(UART_NUM_0,
+    256, 0, 0, NULL, 0) );
 
-    //initializations
-    button_init();
-    led_init();
-    i2c_example_master_init();
-    i2c_scanner();
+  /* Tell VFS to use UART driver */
+  esp_vfs_dev_uart_use_driver(UART_NUM_0);
 
+  //initializations
+  button_init();
+  led_init();
+  i2c_example_master_init();
+  i2c_scanner();
+
+  //parallel tasks
+  xTaskCreate(timer_evt_task, "timer_evt_task", 4096, NULL, configMAX_PRIORITIES, NULL);
+  xTaskCreate(test_alpha_display,"test_alpha_display", 4096, NULL, configMAX_PRIORITIES-1, NULL);
+  //xTaskCreate(led_counter,"led_counter", 4096, NULL, configMAX_PRIORITIES-2, NULL);
+  //xTaskCreate(button_dir_switch,"button_dir_switch", 4096, NULL, configMAX_PRIORITIES-3, NULL);
     //parallel tasks
-    xTaskCreate(test_alpha_display,"test_alpha_display", 4096, NULL, configMAX_PRIORITIES, NULL);
-    xTaskCreate(led_counter,"led_counter", 4096, NULL, configMAX_PRIORITIES-1, NULL);
-    xTaskCreate(button_dir_switch,"button_dir_switch", 4096, NULL, configMAX_PRIORITIES-2, NULL);
     xTaskCreate(servo_seconds, "servo_seconds", 4096, NULL, 4, NULL);
     xTaskCreate(servo_minutes, "servo_minutes", 4096, NULL, 5, NULL);
+  // Initiate alarm using timer API
+  alarm_init();
 }
