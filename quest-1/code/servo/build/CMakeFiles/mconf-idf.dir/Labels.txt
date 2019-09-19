@@ -1,0 +1,13 @@
+# Target labels
+ mconf-idf
+# Source files and their labels
+/Users/ayushupneja/Desktop/EC444/Team2-Upneja-Martin-Kirk/quest-1/code/servo/build/CMakeFiles/mconf-idf
+/Users/ayushupneja/Desktop/EC444/Team2-Upneja-Martin-Kirk/quest-1/code/servo/build/CMakeFiles/mconf-idf.rule
+/Users/ayushupneja/Desktop/EC444/Team2-Upneja-Martin-Kirk/quest-1/code/servo/build/CMakeFiles/mconf-idf-complete.rule
+/Users/ayushupneja/Desktop/EC444/Team2-Upneja-Martin-Kirk/quest-1/code/servo/build/mconf-idf-prefix/src/mconf-idf-stamp/mconf-idf-install.rule
+/Users/ayushupneja/Desktop/EC444/Team2-Upneja-Martin-Kirk/quest-1/code/servo/build/mconf-idf-prefix/src/mconf-idf-stamp/mconf-idf-mkdir.rule
+/Users/ayushupneja/Desktop/EC444/Team2-Upneja-Martin-Kirk/quest-1/code/servo/build/mconf-idf-prefix/src/mconf-idf-stamp/mconf-idf-download.rule
+/Users/ayushupneja/Desktop/EC444/Team2-Upneja-Martin-Kirk/quest-1/code/servo/build/mconf-idf-prefix/src/mconf-idf-stamp/mconf-idf-update.rule
+/Users/ayushupneja/Desktop/EC444/Team2-Upneja-Martin-Kirk/quest-1/code/servo/build/mconf-idf-prefix/src/mconf-idf-stamp/mconf-idf-patch.rule
+/Users/ayushupneja/Desktop/EC444/Team2-Upneja-Martin-Kirk/quest-1/code/servo/build/mconf-idf-prefix/src/mconf-idf-stamp/mconf-idf-configure.rule
+/Users/ayushupneja/Desktop/EC444/Team2-Upneja-Martin-Kirk/quest-1/code/servo/build/mconf-idf-prefix/src/mconf-idf-stamp/mconf-idf-build.rule
