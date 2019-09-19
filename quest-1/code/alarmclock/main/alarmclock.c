@@ -38,8 +38,8 @@
 #define NACK_VAL                           0xFF // i2c nack value
 
 int direction = 1; // 1 for up, -1 for down
-int alarmSetting;
-int current;
+int alarmSetting = 0;
+int current = 25000;
 
 
 // Function to initiate i2c -- note the MSB declaration!
@@ -78,17 +78,21 @@ static void i2c_example_master_init(){
 //given empty 4-char string outputTime, fills with given hours and mins
 void formatTime(char outputTime[], int secondsSinceMidnight) {
 
-  char hours[3];
-  char mins[3];
+  char hours[8];
+  char mins[8];
 
   int intHours = current / 3600;
   int intMins = (current / 60) % 60;
 
-  itoa(intHours, hours, 10);
-  itoa(intMins, mins, 10);
+  //itoa(intHours, hours, 10);
+  //itoa(intMins, mins, 10);
+  sprintf(hours, "%02d", intHours);
+  sprintf(mins, "%02d", intMins);
 
   strcpy(outputTime, hours);
   strcat(outputTime, mins);
+
+  printf("concatenated: %s hours: %d mins: %d\n", outputTime, intHours, intMins);
 }
 
 // Utility function to test for I2C device address -- not used in deploy
@@ -189,18 +193,22 @@ static void test_alpha_display() {
 
       uint16_t displaybuffer[8];
       int i = 0;
-      char dirStr[5];
+      char timeStr[5];
 
+      formatTime(timeStr, current);
+      //printf("%s, %d\n", timeStr, current);
+
+      /*
       //set display direction
       if (direction == -1) {
         strcpy(dirStr, "DOWN");
       } else {
         strcpy(dirStr, "UP  ");
-      }
+      }*/
 
       //put in display buffer
-      while (i < 4 && dirStr[i] != '\0') {
-        displaybuffer[i] = alphafonttable[(int)dirStr[i]];
+      while (i < 4 && timeStr[i] != '\0') {
+        displaybuffer[i] = alphafonttable[(int)timeStr[i]];
         ++i;
       }
 
@@ -276,6 +284,8 @@ static void led_counter() {
     if (count < 0) {
       count = 15;
     }
+
+    current++;
 
 
     gpio_set_level(A9, ((count >> 0) & 1));
