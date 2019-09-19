@@ -40,6 +40,7 @@
 int direction = 1; // 1 for up, -1 for down
 int alarmSetting = 0;
 int current = 0;
+int alarm_flag = 0;
 
 // Function to initiate i2c -- note the MSB declaration!
 static void i2c_example_master_init(){
@@ -204,6 +205,24 @@ void process_input() {
     } else {
         printf("Invalid entry.");
     }
+}
+
+void flag_alarm() {
+  if (current == alarmSetting) {
+    alarm_flag = 1;
+  } else {
+    alarm_flag = 0;
+  }
+}
+
+void run_alarm() {
+  if (alarm_flag == 1) {
+    gpio_set_level(13, 1);
+    vTaskDelay(10000 / portTICK_PERIOD_MS);
+    alarm_flag = 0;
+  } else {
+    gpio_set_level(13, 0);
+  }
 }
 
 static void test_alpha_display() {
