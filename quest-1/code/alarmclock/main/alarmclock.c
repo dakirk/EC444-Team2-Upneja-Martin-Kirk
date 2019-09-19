@@ -39,8 +39,7 @@
 
 int direction = 1; // 1 for up, -1 for down
 int alarmSetting = 0;
-int current = 25000;
-
+int current = 0;
 
 // Function to initiate i2c -- note the MSB declaration!
 static void i2c_example_master_init(){
