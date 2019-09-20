@@ -38,7 +38,7 @@ To synchronize multiple ESP clocks with each other, we would have to connect the
 
 ## Sketches and Photos
 ![Image](./images/71184617_3015561075335078_5913505908813463552_n.jpg)
-![Image](./images/display2.JPG)
+![Image](./images/IMG_3976.PNG)
 
 ## Supporting Artifacts
 - [Link to repo]()
