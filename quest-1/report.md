@@ -20,16 +20,17 @@ We successfully demonstrated:
 
 Relevant pinouts for our design are as follows:
 
-Servo that reads seconds -> 12
-Servo that reads minutes -> 13
-I2C Alphanumeric Display -> SDA and SCL
-Button that stops alarm -> A2
-Alarm LEDs -> A6-A9
+- Servo that reads seconds -> 12
+- Servo that reads minutes -> 13
+- I2C Alphanumeric Display -> SDA and SCL
+- Button that stops alarm -> A2
+- Alarm LEDs -> A6-A9
 
-User interaction with the system is done through the command line, and user inputs in the form of HH:MM are stored as strings.  These strings are parsed into two integers, one for hours and one for minutes.  These values are converted to seconds, added together, and stored as an integer number of "seconds since midnight".      
+In our implementation, we ran six tasks in parallel: one task to run each servo, one task to handle internal timing, one task to write out to the alphanumeric display, one task to process the user input, and one task to operate the alarm.
 
+User interaction with the system is done through the command line, and user inputs in the form of HH:MM are stored as strings.  These strings are parsed into two integers, one for hours and one for minutes.  These values are converted to seconds, added together, and stored as an integer number of "seconds since midnight".  Our system stores two such integer values, one for the alarm time and one for the current time.  Our system uses the ESP32 internal timer to increment the current time variable.  To display the time on the board, the current time is converted back into a string of HH:MM format and written to the board.  When the current time variable is equal to the alarm setting variable, pins A6-A9 are set to high and the LEDs are turned on.  Pins A6-A9 remain at a high setting until the GPIO button is pressed. 
 
-
+Both servos use a minimum pulsewidth of 450 microseconds and a maximum pulsewidth of 2450 microseconds.  The seconds servo moves 3 degrees per second, completing its full 180 degree range in 60 seconds.  The minutes servo moves 3 degrees per minute, completing its full 180 degree range in one hour.  
 
 ## Sketches and Photos
 <center><img src="./images/example.png" width="70%" /></center>  
