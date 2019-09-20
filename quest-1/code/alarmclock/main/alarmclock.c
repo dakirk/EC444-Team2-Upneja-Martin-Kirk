@@ -196,9 +196,7 @@ void servo_seconds(void *arg)
     mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);    //Configure PWM0A & PWM0B with above settings
     while (1) {
         for (count = 0; count < SERVO_MAX_DEGREE; count++) {
-            //printf("Angle of rotation: %d\n", count);
-            angle = servo_per_degree_init(count);
-            //printf("pulse width: %dus\n", angle);
+            angle = servo_per_degree_init((currentTime%60)*3);
             mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
             vTaskDelay(33);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
         }
@@ -221,9 +219,9 @@ void servo_minutes(void *arg)
     mcpwm_init(MCPWM_UNIT_1, MCPWM_TIMER_0, &pwm_config);    //Configure PWM0A & PWM0B with above settings
     while (1) {
         for (count = 0; count < SERVO2_MAX_DEGREE; count++) {
-            //printf("Angle of rotation: %d\n", count);
-            angle = servo2_per_degree_init(count);
-            //printf("pulse width: %dus\n", angle);
+            printf("Angle of rotation: %d\n", count);
+            angle = servo2_per_degree_init((currentTime%60)*3);
+            printf("pulse width: %dus\n", angle);
             mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
             vTaskDelay(1980);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
         }
@@ -366,7 +364,6 @@ void process_input() {
     char mode[2];
     int hrs;
     int mins;
-
     while(1) {
       printf("Enter A for alarm set, T for time set\n");
     
