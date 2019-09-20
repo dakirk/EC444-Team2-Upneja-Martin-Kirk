@@ -9,6 +9,8 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "driver/gpio.h"
+#include "esp_attr.h"
+#include "sdkconfig.h"
 #include "driver/uart.h"
 #include "driver/i2c.h"
 #include "driver/periph_ctrl.h"
@@ -18,6 +20,8 @@
 #include "sdkconfig.h"
 #include "displaychars.h"
 #include "pins.h"
+#include "driver/mcpwm.h"
+#include "soc/mcpwm_periph.h"
 
 // 14-Segment Display
 #define SLAVE_ADDR                         0x70 // alphanumeric address
@@ -125,6 +129,103 @@ static void timer_evt_task(void *arg) {
             } else {
               currentTime++;
             }
+        }
+    }
+}
+
+
+
+//You can get these value from the datasheet of servo you use, in general pulse width varies between 1000 to 2000 mocrosecond
+#define SERVO_MIN_PULSEWIDTH 460  //Minimum pulse width in microsecond
+#define SERVO_MAX_PULSEWIDTH 2450 //Maximum pulse width in microsecond
+#define SERVO_MAX_DEGREE 180 //Maximum angle in degree upto which servo can rotate
+#define SERVO2_MIN_PULSEWIDTH 450  //Minimum pulse width in microsecond
+#define SERVO2_MAX_PULSEWIDTH 2450 //Maximum pulse width in microsecond
+#define SERVO2_MAX_DEGREE 180 //Maximum angle in degree upto which servo can rotate
+
+static void mcpwm_example_gpio_initialize(void)
+{
+    printf("initializing mcpwm servo control gpio......\n");
+    mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, 12);    //Set GPIO 18 as PWM0A, to which servo is connected
+}
+static void mcpwm_example_gpio_initialize2(void)
+{
+    printf("initializing mcpwm servo control gpio......\n");
+    mcpwm_gpio_init(MCPWM_UNIT_1, MCPWM0A, 13);    //Set GPIO 18 as PWM0A, to which servo is connected
+}
+
+/**
+ * @brief Use this function to calcute pulse width for per degree rotation
+ *
+ * @param  degree_of_rotation the angle in degree to which servo has to rotate
+ *
+ * @return
+ *     - calculated pulse width
+ */
+static uint32_t servo_per_degree_init(uint32_t degree_of_rotation)
+{
+    uint32_t cal_pulsewidth = 0;
+    cal_pulsewidth = (SERVO_MIN_PULSEWIDTH + (((SERVO_MAX_PULSEWIDTH - SERVO_MIN_PULSEWIDTH) * (degree_of_rotation)) / (SERVO_MAX_DEGREE)));
+    return cal_pulsewidth;
+}
+
+static uint32_t servo2_per_degree_init(uint32_t degree_of_rotation)
+{
+    uint32_t cal_pulsewidth = 0;
+    cal_pulsewidth = (SERVO2_MIN_PULSEWIDTH + (((SERVO2_MAX_PULSEWIDTH - SERVO2_MIN_PULSEWIDTH) * (degree_of_rotation)) / (SERVO2_MAX_DEGREE)));
+    return cal_pulsewidth;
+}
+
+/**
+ * @brief Configure MCPWM module
+ */
+void servo_seconds(void *arg)
+{
+    uint32_t angle, count;
+    //1. mcpwm gpio initialization
+    mcpwm_example_gpio_initialize();
+
+    //2. initial mcpwm configuration
+    printf("Configuring Initial Parameters of mcpwm......\n");
+    mcpwm_config_t pwm_config;
+    pwm_config.frequency = 50;    //frequency = 50Hz, i.e. for every servo motor time period should be 20ms
+    pwm_config.cmpr_a = 0;    //duty cycle of PWMxA = 0
+    pwm_config.cmpr_b = 0;    //duty cycle of PWMxb = 0
+    pwm_config.counter_mode = MCPWM_UP_COUNTER;
+    pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
+    mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);    //Configure PWM0A & PWM0B with above settings
+    while (1) {
+        for (count = 0; count < SERVO_MAX_DEGREE; count++) {
+            printf("Angle of rotation: %d\n", count);
+            angle = servo_per_degree_init(count);
+            printf("pulse width: %dus\n", angle);
+            mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
+            vTaskDelay(33);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
+        }
+    }
+}
+void servo_minutes(void *arg)
+{
+    uint32_t angle, count;
+    //1. mcpwm gpio initialization
+    mcpwm_example_gpio_initialize2();
+
+    //2. initial mcpwm configuration
+    printf("Configuring Initial Parameters of mcpwm......\n");
+    mcpwm_config_t pwm_config;
+    pwm_config.frequency = 50;    //frequency = 50Hz, i.e. for every servo motor time period should be 20ms
+    pwm_config.cmpr_a = 0;    //duty cycle of PWMxA = 0
+    pwm_config.cmpr_b = 0;    //duty cycle of PWMxb = 0
+    pwm_config.counter_mode = MCPWM_UP_COUNTER;
+    pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
+    mcpwm_init(MCPWM_UNIT_1, MCPWM_TIMER_0, &pwm_config);    //Configure PWM0A & PWM0B with above settings
+    while (1) {
+        for (count = 0; count < SERVO2_MAX_DEGREE; count++) {
+            printf("Angle of rotation: %d\n", count);
+            angle = servo2_per_degree_init(count);
+            printf("pulse width: %dus\n", angle);
+            mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
+            vTaskDelay(1980);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
         }
     }
 }
@@ -432,8 +533,9 @@ void app_main() {
   xTaskCreate(test_alpha_display,"test_alpha_display", 4096, NULL, configMAX_PRIORITIES-1, NULL);
   //xTaskCreate(led_counter,"led_counter", 4096, NULL, configMAX_PRIORITIES-2, NULL);
   //xTaskCreate(button_dir_switch,"button_dir_switch", 4096, NULL, configMAX_PRIORITIES-3, NULL);
-
+    //parallel tasks
+    xTaskCreate(servo_seconds, "servo_seconds", 4096, NULL, 4, NULL);
+    xTaskCreate(servo_minutes, "servo_minutes", 4096, NULL, 5, NULL);
   // Initiate alarm using timer API
   alarm_init();
-
 }
