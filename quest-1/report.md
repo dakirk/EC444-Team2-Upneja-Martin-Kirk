@@ -37,6 +37,8 @@ Both servos use a minimum pulsewidth of 450 microseconds and a maximum pulsewidt
 To synchronize multiple ESP clocks with each other, we would have to connect the devices over a wifi network and create a virtual LAN network between them.  ESP32 devices can be connected by their hostnames and ping each other at a definable rate such that a change in one device would cause a change in the other device.    
 
 ## Sketches and Photos
+![Image](./images/display2.JPG)
+![Image](./images/display2.JPG)
 
 ## Supporting Artifacts
 - [Link to repo]()
