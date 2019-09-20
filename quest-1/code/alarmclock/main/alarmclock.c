@@ -1,6 +1,5 @@
 /*
   Adapted I2C example code to work with the Adafruit 14-segment Alphanumeric Display. Key notes: MSB!!
-
   Emily Lam, Sept 2018, Updated Aug 2019
 */
 #include <stdio.h>
@@ -9,6 +8,8 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "driver/gpio.h"
+#include "esp_attr.h"
+#include "sdkconfig.h"
 #include "driver/uart.h"
 #include "driver/i2c.h"
 #include "driver/periph_ctrl.h"
@@ -18,6 +19,8 @@
 #include "sdkconfig.h"
 #include "displaychars.h"
 #include "pins.h"
+#include "driver/mcpwm.h"
+#include "soc/mcpwm_periph.h"
 
 // 14-Segment Display
 #define SLAVE_ADDR                         0x70 // alphanumeric address
@@ -116,15 +119,110 @@ static void timer_evt_task(void *arg) {
 
         // Do something if triggered!
         if (evt.flag == 1) {
-            //printf("Time: %d\n", currentTime);
+            printf("Time: %d\n", currentTime);
 
             led_counter();
 
-            if (currentTime > 86400) {
+            if (currentTime >= 86399) {
               currentTime = 0;
             } else {
               currentTime++;
             }
+        }
+    }
+}
+
+
+
+//You can get these value from the datasheet of servo you use, in general pulse width varies between 1000 to 2000 mocrosecond
+#define SERVO_MIN_PULSEWIDTH 460  //Minimum pulse width in microsecond
+#define SERVO_MAX_PULSEWIDTH 2450 //Maximum pulse width in microsecond
+#define SERVO_MAX_DEGREE 180 //Maximum angle in degree upto which servo can rotate
+#define SERVO2_MIN_PULSEWIDTH 450  //Minimum pulse width in microsecond
+#define SERVO2_MAX_PULSEWIDTH 2450 //Maximum pulse width in microsecond
+#define SERVO2_MAX_DEGREE 180 //Maximum angle in degree upto which servo can rotate
+
+static void mcpwm_example_gpio_initialize(void)
+{
+    printf("initializing mcpwm servo control gpio......\n");
+    mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, 12);    //Set GPIO 18 as PWM0A, to which servo is connected
+}
+static void mcpwm_example_gpio_initialize2(void)
+{
+    printf("initializing mcpwm servo control gpio......\n");
+    mcpwm_gpio_init(MCPWM_UNIT_1, MCPWM0A, 13);    //Set GPIO 18 as PWM0A, to which servo is connected
+}
+
+/**
+ * @brief Use this function to calcute pulse width for per degree rotation
+ *
+ * @param  degree_of_rotation the angle in degree to which servo has to rotate
+ *
+ * @return
+ *     - calculated pulse width
+ */
+static uint32_t servo_per_degree_init(uint32_t degree_of_rotation)
+{
+    uint32_t cal_pulsewidth = 0;
+    cal_pulsewidth = (SERVO_MIN_PULSEWIDTH + (((SERVO_MAX_PULSEWIDTH - SERVO_MIN_PULSEWIDTH) * (degree_of_rotation)) / (SERVO_MAX_DEGREE)));
+    return cal_pulsewidth;
+}
+
+static uint32_t servo2_per_degree_init(uint32_t degree_of_rotation)
+{
+    uint32_t cal_pulsewidth = 0;
+    cal_pulsewidth = (SERVO2_MIN_PULSEWIDTH + (((SERVO2_MAX_PULSEWIDTH - SERVO2_MIN_PULSEWIDTH) * (degree_of_rotation)) / (SERVO2_MAX_DEGREE)));
+    return cal_pulsewidth;
+}
+
+/**
+ * @brief Configure MCPWM module
+ */
+void servo_seconds(void *arg)
+{
+    uint32_t angle, count;
+    //1. mcpwm gpio initialization
+    mcpwm_example_gpio_initialize();
+
+    //2. initial mcpwm configuration
+    printf("Configuring Initial Parameters of mcpwm......\n");
+    mcpwm_config_t pwm_config;
+    pwm_config.frequency = 50;    //frequency = 50Hz, i.e. for every servo motor time period should be 20ms
+    pwm_config.cmpr_a = 0;    //duty cycle of PWMxA = 0
+    pwm_config.cmpr_b = 0;    //duty cycle of PWMxb = 0
+    pwm_config.counter_mode = MCPWM_UP_COUNTER;
+    pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
+    mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);    //Configure PWM0A & PWM0B with above settings
+    while (1) {
+        for (count = 0; count < SERVO_MAX_DEGREE; count++) {
+            angle = servo_per_degree_init((currentTime%60)*3);
+            mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
+            vTaskDelay(33);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
+        }
+    }
+}
+void servo_minutes(void *arg)
+{
+    uint32_t angle, count;
+    //1. mcpwm gpio initialization
+    mcpwm_example_gpio_initialize2();
+
+    //2. initial mcpwm configuration
+    printf("Configuring Initial Parameters of mcpwm......\n");
+    mcpwm_config_t pwm_config;
+    pwm_config.frequency = 50;    //frequency = 50Hz, i.e. for every servo motor time period should be 20ms
+    pwm_config.cmpr_a = 0;    //duty cycle of PWMxA = 0
+    pwm_config.cmpr_b = 0;    //duty cycle of PWMxb = 0
+    pwm_config.counter_mode = MCPWM_UP_COUNTER;
+    pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
+    mcpwm_init(MCPWM_UNIT_1, MCPWM_TIMER_0, &pwm_config);    //Configure PWM0A & PWM0B with above settings
+    while (1) {
+        for (count = 0; count < SERVO2_MAX_DEGREE; count++) {
+            printf("Angle of rotation: %d\n", count);
+            angle = servo2_per_degree_init((currentTime%60)*3);
+            printf("pulse width: %dus\n", angle);
+            mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
+            vTaskDelay(1980);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
         }
     }
 }
@@ -259,18 +357,18 @@ int set_brightness_max(uint8_t val) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void process_input() {
-    int hrs;
-    int mins;
     char time[5];
     char chrs[3];
     char cmins[3];
     char mode[2];
+    int hrs;
+    int mins;
+    while(1) {
+      printf("Enter A for alarm set, T for time set\n");
+    
+      gets(mode);
 
-    while(1){
-       printf("Enter A for alarm set, T for time set\n");
-       gets(mode);
-
-      if (mode[0] == 'A') {
+      if (mode[0] == 'A' && mode[1] == '\0') {
           printf("Enter alarm time in military time\n");
           gets(time);
           chrs[0] = time[0];
@@ -280,8 +378,8 @@ void process_input() {
           hrs = atoi(chrs);
           mins = atoi(cmins);
           alarmSetting = (hrs*3600) + (mins*60);
-      } else if (mode[0] == 'T'){
-          printf("Enter current time in military time\n");
+      } else if (mode[0] == 'T' && mode[1] == '\0'){
+          printf("Enter currentTime time in military time\n");
           gets(time);
           chrs[0] = time[0];
           chrs[1] = time[1];
@@ -295,27 +393,24 @@ void process_input() {
       }
     }
 
+    
 }
 
 void flag_alarm() {
-  while(1) {
-    if (currentTime == alarmSetting) {
-      alarm_flag = 1;
-    } else {
-      alarm_flag = 0;
-    }
+  if (currentTime == alarmSetting) {
+    alarm_flag = 1;
+  } else {
+    alarm_flag = 0;
   }
 }
 
 void run_alarm() {
-  while(1){
-    if (alarm_flag == 1) {
-      gpio_set_level(13, 1);
-      vTaskDelay(10000 / portTICK_PERIOD_MS);
-      alarm_flag = 0;
-    } else {
-      gpio_set_level(13, 0);
-    }
+  if (alarm_flag == 1) {
+    gpio_set_level(13, 1);
+    vTaskDelay(10000 / portTICK_PERIOD_MS);
+    alarm_flag = 0;
+  } else {
+    gpio_set_level(13, 0);
   }
 }
 
@@ -437,13 +532,9 @@ void app_main() {
   //parallel tasks
   xTaskCreate(timer_evt_task, "timer_evt_task", 4096, NULL, configMAX_PRIORITIES, NULL);
   xTaskCreate(test_alpha_display,"test_alpha_display", 4096, NULL, configMAX_PRIORITIES-1, NULL);
-  xTaskCreate(process_input,"process_input", 4096, NULL, configMAX_PRIORITIES-2, NULL);
-  xTaskCreate(flag_alarm,"flag_alarm", 4096, NULL, configMAX_PRIORITIES-3, NULL);
-  xTaskCreate(run_alarm,"run_alarm", 4096, NULL, configMAX_PRIORITIES-4, NULL);
-  //xTaskCreate(led_counter,"led_counter", 4096, NULL, configMAX_PRIORITIES-2, NULL);
-  //xTaskCreate(button_dir_switch,"button_dir_switch", 4096, NULL, configMAX_PRIORITIES-3, NULL);
-
+  xTaskCreate(servo_seconds, "servo_seconds", 4096, NULL, configMAX_PRIORITIES-2, NULL);
+  xTaskCreate(servo_minutes, "servo_minutes", 4096, NULL, configMAX_PRIORITIES-3, NULL);
+  xTaskCreate(process_input, "process_input", 4096, NULL, configMAX_PRIORITIES-4, NULL);
   // Initiate alarm using timer API
   alarm_init();
-
 }
