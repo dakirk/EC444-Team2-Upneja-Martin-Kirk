@@ -7,13 +7,21 @@
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
 #include "driver/gpio.h"
+#include "esp_attr.h"
 #include "sdkconfig.h"
 #include "driver/uart.h"
-#include "esp_vfs_dev.h"
 #include "driver/i2c.h"
+#include "driver/periph_ctrl.h"
+#include "driver/timer.h"
+#include "esp_vfs_dev.h"
+#include "esp_types.h"
+#include "sdkconfig.h"
 #include "displaychars.h"
 #include "pins.h"
+#include "driver/mcpwm.h"
+#include "soc/mcpwm_periph.h"
 
 // 14-Segment Display
 #define SLAVE_ADDR                         0x70 // alphanumeric address
@@ -37,10 +45,188 @@
 #define ACK_VAL                            0x00 // i2c ack value
 #define NACK_VAL                           0xFF // i2c nack value
 
+#define TIMER_DIVIDER         16    //  Hardware timer clock divider
+#define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)  // to seconds
+#define TIMER_INTERVAL_SEC   (1)    // Sample test interval for the first timer
+#define TEST_WITH_RELOAD      1     // Testing will be done with auto reload
+
+static void led_counter();
+
 int direction = 1; // 1 for up, -1 for down
 int alarmSetting = 0;
-int current = 0;
+int currentTime = 0;
 int alarm_flag = 0;
+
+// Timer Functions //////////////////////////////////////////////////////////
+
+// A simple structure to pass "events" to main task
+typedef struct {
+    int flag;     // flag for enabling stuff in main code
+} timer_event_t;
+
+// Initialize queue handler for timer-based events
+xQueueHandle timer_queue;
+
+// ISR handler
+void IRAM_ATTR timer_group0_isr(void *para) {
+
+    // Prepare basic event data, aka set flag
+    timer_event_t evt;
+    evt.flag = 1;
+
+    // Clear the interrupt, Timer 0 in group 0
+    TIMERG0.int_clr_timers.t0 = 1;
+
+    // After the alarm triggers, we need to re-enable it to trigger it next time
+    TIMERG0.hw_timer[TIMER_0].config.alarm_en = TIMER_ALARM_EN;
+
+    // Send the event data back to the main program task
+    xQueueSendFromISR(timer_queue, &evt, NULL);
+}
+
+// Initialize timer 0 in group 0 for 1 sec alarm interval and auto reload
+static void alarm_init() {
+    /* Select and initialize basic parameters of the timer */
+    timer_config_t config;
+    config.divider = TIMER_DIVIDER;
+    config.counter_dir = TIMER_COUNT_UP;
+    config.counter_en = TIMER_PAUSE;
+    config.alarm_en = TIMER_ALARM_EN;
+    config.intr_type = TIMER_INTR_LEVEL;
+    config.auto_reload = TEST_WITH_RELOAD;
+    timer_init(TIMER_GROUP_0, TIMER_0, &config);
+
+    // Timer's counter will initially start from value below
+    timer_set_counter_value(TIMER_GROUP_0, TIMER_0, 0x00000000ULL);
+
+    // Configure the alarm value and the interrupt on alarm
+    timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, TIMER_INTERVAL_SEC * TIMER_SCALE);
+    timer_enable_intr(TIMER_GROUP_0, TIMER_0);
+    timer_isr_register(TIMER_GROUP_0, TIMER_0, timer_group0_isr,
+        (void *) TIMER_0, ESP_INTR_FLAG_IRAM, NULL);
+
+    // Start timer
+    timer_start(TIMER_GROUP_0, TIMER_0);
+}
+
+// The main task of this example program
+static void timer_evt_task(void *arg) {
+    while (1) {
+        // Create dummy structure to store structure from queue
+        timer_event_t evt;
+
+        // Transfer from queue
+        xQueueReceive(timer_queue, &evt, portMAX_DELAY);
+
+        // Do something if triggered!
+        if (evt.flag == 1) {
+            printf("Time: %d\n", currentTime);
+
+            led_counter();
+
+            if (currentTime >= 86399) {
+              currentTime = 0;
+            } else {
+              currentTime++;
+            }
+        }
+    }
+}
+
+
+
+//You can get these value from the datasheet of servo you use, in general pulse width varies between 1000 to 2000 mocrosecond
+#define SERVO_MIN_PULSEWIDTH 460  //Minimum pulse width in microsecond
+#define SERVO_MAX_PULSEWIDTH 2450 //Maximum pulse width in microsecond
+#define SERVO_MAX_DEGREE 180 //Maximum angle in degree upto which servo can rotate
+#define SERVO2_MIN_PULSEWIDTH 450  //Minimum pulse width in microsecond
+#define SERVO2_MAX_PULSEWIDTH 2450 //Maximum pulse width in microsecond
+#define SERVO2_MAX_DEGREE 180 //Maximum angle in degree upto which servo can rotate
+
+static void mcpwm_example_gpio_initialize(void)
+{
+    printf("initializing mcpwm servo control gpio......\n");
+    mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, 12);    //Set GPIO 18 as PWM0A, to which servo is connected
+}
+static void mcpwm_example_gpio_initialize2(void)
+{
+    printf("initializing mcpwm servo control gpio......\n");
+    mcpwm_gpio_init(MCPWM_UNIT_1, MCPWM0A, 13);    //Set GPIO 18 as PWM0A, to which servo is connected
+}
+
+/**
+ * @brief Use this function to calcute pulse width for per degree rotation
+ *
+ * @param  degree_of_rotation the angle in degree to which servo has to rotate
+ *
+ * @return
+ *     - calculated pulse width
+ */
+static uint32_t servo_per_degree_init(uint32_t degree_of_rotation)
+{
+    uint32_t cal_pulsewidth = 0;
+    cal_pulsewidth = (SERVO_MIN_PULSEWIDTH + (((SERVO_MAX_PULSEWIDTH - SERVO_MIN_PULSEWIDTH) * (degree_of_rotation)) / (SERVO_MAX_DEGREE)));
+    return cal_pulsewidth;
+}
+
+static uint32_t servo2_per_degree_init(uint32_t degree_of_rotation)
+{
+    uint32_t cal_pulsewidth = 0;
+    cal_pulsewidth = (SERVO2_MIN_PULSEWIDTH + (((SERVO2_MAX_PULSEWIDTH - SERVO2_MIN_PULSEWIDTH) * (degree_of_rotation)) / (SERVO2_MAX_DEGREE)));
+    return cal_pulsewidth;
+}
+
+/**
+ * @brief Configure MCPWM module
+ */
+void servo_seconds(void *arg)
+{
+    uint32_t angle, count;
+    //1. mcpwm gpio initialization
+    mcpwm_example_gpio_initialize();
+
+    //2. initial mcpwm configuration
+    printf("Configuring Initial Parameters of mcpwm......\n");
+    mcpwm_config_t pwm_config;
+    pwm_config.frequency = 50;    //frequency = 50Hz, i.e. for every servo motor time period should be 20ms
+    pwm_config.cmpr_a = 0;    //duty cycle of PWMxA = 0
+    pwm_config.cmpr_b = 0;    //duty cycle of PWMxb = 0
+    pwm_config.counter_mode = MCPWM_UP_COUNTER;
+    pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
+    mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);    //Configure PWM0A & PWM0B with above settings
+    while (1) {
+        for (count = 0; count < SERVO_MAX_DEGREE; count++) {
+            angle = servo_per_degree_init((currentTime%60)*3);
+            mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
+            vTaskDelay(33);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
+        }
+    }
+}
+void servo_minutes(void *arg)
+{
+    uint32_t angle, count;
+    //1. mcpwm gpio initialization
+    mcpwm_example_gpio_initialize2();
+
+    //2. initial mcpwm configuration
+    printf("Configuring Initial Parameters of mcpwm......\n");
+    mcpwm_config_t pwm_config;
+    pwm_config.frequency = 50;    //frequency = 50Hz, i.e. for every servo motor time period should be 20ms
+    pwm_config.cmpr_a = 0;    //duty cycle of PWMxA = 0
+    pwm_config.cmpr_b = 0;    //duty cycle of PWMxb = 0
+    pwm_config.counter_mode = MCPWM_UP_COUNTER;
+    pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
+    mcpwm_init(MCPWM_UNIT_1, MCPWM_TIMER_0, &pwm_config);    //Configure PWM0A & PWM0B with above settings
+    while (1) {
+        for (count = 0; count < SERVO2_MAX_DEGREE; count++) {
+            printf("Angle of rotation: %d\n", count);
+            angle = servo2_per_degree_init((currentTime%60)*3);
+            printf("pulse width: %dus\n", angle);
+            mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
+            vTaskDelay(1980);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
+        }
+    }
+}
 
 // Function to initiate i2c -- note the MSB declaration!
 static void i2c_example_master_init(){
@@ -81,8 +267,8 @@ void formatTime(char outputTime[], int secondsSinceMidnight) {
   char hours[8];
   char mins[8];
 
-  int intHours = current / 3600;
-  int intMins = (current / 60) % 60;
+  int intHours = currentTime / 3600;
+  int intMins = (currentTime / 60) % 60;
 
   //itoa(intHours, hours, 10);
   //itoa(intMins, mins, 10);
@@ -92,7 +278,7 @@ void formatTime(char outputTime[], int secondsSinceMidnight) {
   strcpy(outputTime, hours);
   strcat(outputTime, mins);
 
-  printf("concatenated: %s hours: %d mins: %d\n", outputTime, intHours, intMins);
+  //printf("concatenated: %s hours: %d mins: %d\n", outputTime, intHours, intMins);
 }
 
 // Utility function to test for I2C device address -- not used in deploy
@@ -175,40 +361,44 @@ void process_input() {
     char time[5];
     char chrs[3];
     char cmins[3];
+    char mode[2];
     int hrs;
     int mins;
+    while(1) {
+      printf("Enter A for alarm set, T for time set\n");
+    
+      gets(mode);
 
-    printf("Enter A for alarm set, T for time set\n");
-    char mode;
-    gets(mode);
-
-    if (mode == 'A') {
-        printf("Enter alarm time in military time\n");
-        gets(time);
-        chrs[0] = time[0];
-        chrs[1] = time[1];
-        cmins[0] = time[2];
-        cmins[1] = time[3];
-        hrs = atoi(chrs);
-        mins = atoi(cmins);
-        alarmSetting = (hrs*3600) + (mins*60);
-    } else if (mode == 'T'){
-        printf("Enter current time in military time\n");
-        gets(time);
-        chrs[0] = time[0];
-        chrs[1] = time[1];
-        cmins[0] = time[2];
-        cmins[1] = time[3];
-        hrs = atoi(chrs);
-        mins = atoi(cmins);
-        current = (hrs*3600) + (mins*60);
-    } else {
-        printf("Invalid entry.");
+      if (mode[0] == 'A' && mode[1] == '\0') {
+          printf("Enter alarm time in military time\n");
+          gets(time);
+          chrs[0] = time[0];
+          chrs[1] = time[1];
+          cmins[0] = time[2];
+          cmins[1] = time[3];
+          hrs = atoi(chrs);
+          mins = atoi(cmins);
+          alarmSetting = (hrs*3600) + (mins*60);
+      } else if (mode[0] == 'T' && mode[1] == '\0'){
+          printf("Enter currentTime time in military time\n");
+          gets(time);
+          chrs[0] = time[0];
+          chrs[1] = time[1];
+          cmins[0] = time[2];
+          cmins[1] = time[3];
+          hrs = atoi(chrs);
+          mins = atoi(cmins);
+          currentTime = (hrs*3600) + (mins*60);
+      } else {
+          printf("Invalid entry.");
+      }
     }
+
+    
 }
 
 void flag_alarm() {
-  if (current == alarmSetting) {
+  if (currentTime == alarmSetting) {
     alarm_flag = 1;
   } else {
     alarm_flag = 0;
@@ -249,8 +439,8 @@ static void test_alpha_display() {
       int i = 0;
       char timeStr[5];
 
-      formatTime(timeStr, current);
-      //printf("%s, %d\n", timeStr, current);
+      formatTime(timeStr, currentTime);
+      //printf("%s, %d\n", timeStr, currentTime);
 
       /*
       //set display direction
@@ -291,26 +481,14 @@ static void test_alpha_display() {
 
 }
 
+// Init  Functions //////////////////////////////////////////////////////////
+
 //initialize input pin
 static void button_init() {
   gpio_pad_select_gpio(A2);
   gpio_set_direction(A2, GPIO_MODE_INPUT);
 }
 
-//change direction when button pressed (input to A2)
-static void button_dir_switch() {
-
-  while(1) {
-    int button_pressed = gpio_get_level(A2);
-
-    if (button_pressed) {
-      direction *= -1; //switch direction
-      //printf("Direction switched!\n");
-      vTaskDelay(500 / portTICK_PERIOD_MS); //delay, serving as primitive debouncer
-    }
-  }
-
-}
 
 //set up LED output
 static void led_init() {
@@ -327,52 +505,37 @@ static void led_init() {
 
 static void led_counter() {
 
-  int count = 0;
-  //int i;
-
-  while(1) {
-    if (count > 15) {
-      count = 0;
-    }
-
-    if (count < 0) {
-      count = 15;
-    }
-
-    current++;
-
-
-    gpio_set_level(A9, ((count >> 0) & 1));
-    gpio_set_level(A8, ((count >> 1) & 1));
-    gpio_set_level(A7, ((count >> 2) & 1));
-    gpio_set_level(A6, ((count >> 3) & 1));
-
-    count += direction;
-
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-
-  }
+  gpio_set_level(A9, (currentTime % 4 == 0));
+  gpio_set_level(A8, (currentTime % 4 == 1));
+  gpio_set_level(A7, (currentTime % 4 == 2));
+  gpio_set_level(A6, (currentTime % 4 == 3));
 
 }
 
 void app_main() {
 
-    /* Install UART driver for interrupt-driven reads and writes */
-    ESP_ERROR_CHECK( uart_driver_install(UART_NUM_0,
-      256, 0, 0, NULL, 0) );
+  // Create a FIFO queue for timer-based
+  timer_queue = xQueueCreate(10, sizeof(timer_event_t));
 
-    /* Tell VFS to use UART driver */
-    esp_vfs_dev_uart_use_driver(UART_NUM_0);
+  /* Install UART driver for interrupt-driven reads and writes */
+  ESP_ERROR_CHECK( uart_driver_install(UART_NUM_0,
+    256, 0, 0, NULL, 0) );
 
-    //initializations
-    button_init();
-    led_init();
-    i2c_example_master_init();
-    i2c_scanner();
+  /* Tell VFS to use UART driver */
+  esp_vfs_dev_uart_use_driver(UART_NUM_0);
 
-    //parallel tasks
-    xTaskCreate(test_alpha_display,"test_alpha_display", 4096, NULL, configMAX_PRIORITIES, NULL);
-    xTaskCreate(led_counter,"led_counter", 4096, NULL, configMAX_PRIORITIES-1, NULL);
-    xTaskCreate(button_dir_switch,"button_dir_switch", 4096, NULL, configMAX_PRIORITIES-2, NULL);
+  //initializations
+  button_init();
+  led_init();
+  i2c_example_master_init();
+  i2c_scanner();
 
+  //parallel tasks
+  xTaskCreate(timer_evt_task, "timer_evt_task", 4096, NULL, configMAX_PRIORITIES, NULL);
+  xTaskCreate(test_alpha_display,"test_alpha_display", 4096, NULL, configMAX_PRIORITIES-1, NULL);
+  xTaskCreate(servo_seconds, "servo_seconds", 4096, NULL, configMAX_PRIORITIES-2, NULL);
+  xTaskCreate(servo_minutes, "servo_minutes", 4096, NULL, configMAX_PRIORITIES-3, NULL);
+  xTaskCreate(process_input, "process_input", 4096, NULL, configMAX_PRIORITIES-4, NULL);
+  // Initiate alarm using timer API
+  alarm_init();
 }
