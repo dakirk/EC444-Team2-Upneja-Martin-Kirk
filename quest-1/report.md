@@ -32,10 +32,11 @@ User interaction with the system is done through the command line, and user inpu
 
 Both servos use a minimum pulsewidth of 450 microseconds and a maximum pulsewidth of 2450 microseconds.  The seconds servo moves 3 degrees per second, completing its full 180 degree range in 60 seconds.  The minutes servo moves 3 degrees per minute, completing its full 180 degree range in one hour.  
 
-## Sketches and Photos
-<center><img src="./images/example.png" width="70%" /></center>  
-<center> </center>
+## Investigative Question
 
+To synchronize multiple ESP clocks with each other, we would have to connect the devices over a wifi network and create a virtual LAN network between them.  ESP32 devices can be connected by their hostnames and ping each other at a definable rate such that a change in one device would cause a change in the other device.    
+
+## Sketches and Photos
 
 ## Supporting Artifacts
 - [Link to repo]()
