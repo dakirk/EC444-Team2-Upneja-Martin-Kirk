@@ -120,11 +120,11 @@ static void timer_evt_task(void *arg) {
 
         // Do something if triggered!
         if (evt.flag == 1) {
-            //printf("Time: %d\n", currentTime);
+            printf("Time: %d\n", currentTime);
 
             led_counter();
 
-            if (currentTime > 86400) {
+            if (currentTime >= 86399) {
               currentTime = 0;
             } else {
               currentTime++;
@@ -363,36 +363,41 @@ void process_input() {
     char time[5];
     char chrs[3];
     char cmins[3];
+    char mode[2];
     int hrs;
     int mins;
 
-    printf("Enter A for alarm set, T for time set\n");
-    char mode[2];
-    gets(mode);
+    while(1) {
+      printf("Enter A for alarm set, T for time set\n");
+    
+      gets(mode);
 
-    if (mode[0] == 'A' && mode[1] == '\0') {
-        printf("Enter alarm time in military time\n");
-        gets(time);
-        chrs[0] = time[0];
-        chrs[1] = time[1];
-        cmins[0] = time[2];
-        cmins[1] = time[3];
-        hrs = atoi(chrs);
-        mins = atoi(cmins);
-        alarmSetting = (hrs*3600) + (mins*60);
-    } else if (mode[0] == 'T' && mode[1] == '\0'){
-        printf("Enter currentTime time in military time\n");
-        gets(time);
-        chrs[0] = time[0];
-        chrs[1] = time[1];
-        cmins[0] = time[2];
-        cmins[1] = time[3];
-        hrs = atoi(chrs);
-        mins = atoi(cmins);
-        currentTime = (hrs*3600) + (mins*60);
-    } else {
-        printf("Invalid entry.");
+      if (mode[0] == 'A' && mode[1] == '\0') {
+          printf("Enter alarm time in military time\n");
+          gets(time);
+          chrs[0] = time[0];
+          chrs[1] = time[1];
+          cmins[0] = time[2];
+          cmins[1] = time[3];
+          hrs = atoi(chrs);
+          mins = atoi(cmins);
+          alarmSetting = (hrs*3600) + (mins*60);
+      } else if (mode[0] == 'T' && mode[1] == '\0'){
+          printf("Enter currentTime time in military time\n");
+          gets(time);
+          chrs[0] = time[0];
+          chrs[1] = time[1];
+          cmins[0] = time[2];
+          cmins[1] = time[3];
+          hrs = atoi(chrs);
+          mins = atoi(cmins);
+          currentTime = (hrs*3600) + (mins*60);
+      } else {
+          printf("Invalid entry.");
+      }
     }
+
+    
 }
 
 void flag_alarm() {
@@ -531,11 +536,9 @@ void app_main() {
   //parallel tasks
   xTaskCreate(timer_evt_task, "timer_evt_task", 4096, NULL, configMAX_PRIORITIES, NULL);
   xTaskCreate(test_alpha_display,"test_alpha_display", 4096, NULL, configMAX_PRIORITIES-1, NULL);
-  //xTaskCreate(led_counter,"led_counter", 4096, NULL, configMAX_PRIORITIES-2, NULL);
-  //xTaskCreate(button_dir_switch,"button_dir_switch", 4096, NULL, configMAX_PRIORITIES-3, NULL);
-    //parallel tasks
-    xTaskCreate(servo_seconds, "servo_seconds", 4096, NULL, 4, NULL);
-    xTaskCreate(servo_minutes, "servo_minutes", 4096, NULL, 5, NULL);
+  xTaskCreate(servo_seconds, "servo_seconds", 4096, NULL, configMAX_PRIORITIES-2, NULL);
+  xTaskCreate(servo_minutes, "servo_minutes", 4096, NULL, configMAX_PRIORITIES-3, NULL);
+  xTaskCreate(process_input, "process_input", 4096, NULL, configMAX_PRIORITIES-4, NULL);
   // Initiate alarm using timer API
   alarm_init();
 }
