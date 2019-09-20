@@ -41,11 +41,17 @@ To synchronize multiple ESP clocks with each other, we would have to connect the
 ![Image](./images/IMG_3976.PNG)
 
 ## Supporting Artifacts
-- [Link to repo]()
-- [Link to video demo]()
+- Repo Link: https://github.com/BU-EC444/Team2-Upneja-Martin-Kirk
+- Video Link: 
 
 
 ## References
+- esp-idf/examples/get-started/blink
+- https://github.com/adafruit/Adafruit_LED_Backpack
+- https://github.com/BU-EC444/code-examples/tree/master/i2c-display
+- esp-idf/examples/peripherals/mcpwm/mcpwm_servo_control
+
+
 
 -----
 
