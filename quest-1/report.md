@@ -42,7 +42,7 @@ To synchronize multiple ESP clocks with each other, we would have to connect the
 
 ## Supporting Artifacts
 - Repo Link: https://github.com/BU-EC444/Team2-Upneja-Martin-Kirk
-- Video Link: 
+- Video Link: https://www.youtube.com/watch?v=3K5QliVFHiY&feature=youtu.be
 
 
 ## References
