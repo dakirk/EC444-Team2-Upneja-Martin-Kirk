@@ -15,18 +15,18 @@
 
 set(HEAD_HASH)
 
-file(READ "/Users/kylemartin/Documents/senioryear/fall/EC444/Martin-Kyle/skills/cluster-2-sensor/15-battery/code/adc/build/CMakeFiles/git-data/HEAD" HEAD_CONTENTS LIMIT 1024)
+file(READ "/Users/David/Desktop/College_Stuff/EC444_Projects/Team2-Upneja-Martin-Kirk/quest-2/code/adc/build/CMakeFiles/git-data/HEAD" HEAD_CONTENTS LIMIT 1024)
 
 string(STRIP "${HEAD_CONTENTS}" HEAD_CONTENTS)
 if(HEAD_CONTENTS MATCHES "ref")
 	# named branch
 	string(REPLACE "ref: " "" HEAD_REF "${HEAD_CONTENTS}")
-	if(EXISTS "/Users/kylemartin/Documents/senioryear/fall/EC444/Martin-Kyle/.git/${HEAD_REF}")
-		configure_file("/Users/kylemartin/Documents/senioryear/fall/EC444/Martin-Kyle/.git/${HEAD_REF}" "/Users/kylemartin/Documents/senioryear/fall/EC444/Martin-Kyle/skills/cluster-2-sensor/15-battery/code/adc/build/CMakeFiles/git-data/head-ref" COPYONLY)
+	if(EXISTS "/Users/David/Desktop/College_Stuff/EC444_Projects/Team2-Upneja-Martin-Kirk/.git/${HEAD_REF}")
+		configure_file("/Users/David/Desktop/College_Stuff/EC444_Projects/Team2-Upneja-Martin-Kirk/.git/${HEAD_REF}" "/Users/David/Desktop/College_Stuff/EC444_Projects/Team2-Upneja-Martin-Kirk/quest-2/code/adc/build/CMakeFiles/git-data/head-ref" COPYONLY)
 	else()
-		if(EXISTS "/Users/kylemartin/Documents/senioryear/fall/EC444/Martin-Kyle/.git/packed-refs")
-			configure_file("/Users/kylemartin/Documents/senioryear/fall/EC444/Martin-Kyle/.git/packed-refs" "/Users/kylemartin/Documents/senioryear/fall/EC444/Martin-Kyle/skills/cluster-2-sensor/15-battery/code/adc/build/CMakeFiles/git-data/packed-refs" COPYONLY)
-			file(READ "/Users/kylemartin/Documents/senioryear/fall/EC444/Martin-Kyle/skills/cluster-2-sensor/15-battery/code/adc/build/CMakeFiles/git-data/packed-refs" PACKED_REFS)
+		if(EXISTS "/Users/David/Desktop/College_Stuff/EC444_Projects/Team2-Upneja-Martin-Kirk/.git/packed-refs")
+			configure_file("/Users/David/Desktop/College_Stuff/EC444_Projects/Team2-Upneja-Martin-Kirk/.git/packed-refs" "/Users/David/Desktop/College_Stuff/EC444_Projects/Team2-Upneja-Martin-Kirk/quest-2/code/adc/build/CMakeFiles/git-data/packed-refs" COPYONLY)
+			file(READ "/Users/David/Desktop/College_Stuff/EC444_Projects/Team2-Upneja-Martin-Kirk/quest-2/code/adc/build/CMakeFiles/git-data/packed-refs" PACKED_REFS)
 			if(${PACKED_REFS} MATCHES "([0-9a-z]*) ${HEAD_REF}")
 				set(HEAD_HASH "${CMAKE_MATCH_1}")
 			endif()
@@ -34,10 +34,10 @@ if(HEAD_CONTENTS MATCHES "ref")
 	endif()
 else()
 	# detached HEAD
-	configure_file("/Users/kylemartin/Documents/senioryear/fall/EC444/Martin-Kyle/.git/HEAD" "/Users/kylemartin/Documents/senioryear/fall/EC444/Martin-Kyle/skills/cluster-2-sensor/15-battery/code/adc/build/CMakeFiles/git-data/head-ref" COPYONLY)
+	configure_file("/Users/David/Desktop/College_Stuff/EC444_Projects/Team2-Upneja-Martin-Kirk/.git/HEAD" "/Users/David/Desktop/College_Stuff/EC444_Projects/Team2-Upneja-Martin-Kirk/quest-2/code/adc/build/CMakeFiles/git-data/head-ref" COPYONLY)
 endif()
 
 if(NOT HEAD_HASH)
-	file(READ "/Users/kylemartin/Documents/senioryear/fall/EC444/Martin-Kyle/skills/cluster-2-sensor/15-battery/code/adc/build/CMakeFiles/git-data/head-ref" HEAD_HASH LIMIT 1024)
+	file(READ "/Users/David/Desktop/College_Stuff/EC444_Projects/Team2-Upneja-Martin-Kirk/quest-2/code/adc/build/CMakeFiles/git-data/head-ref" HEAD_HASH LIMIT 1024)
 	string(STRIP "${HEAD_HASH}" HEAD_HASH)
 endif()

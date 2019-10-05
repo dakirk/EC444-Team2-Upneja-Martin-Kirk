@@ -42,7 +42,7 @@ esp-idf/soc/libsoc.a(rtc_wdt.c.obj)
                               esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj) (rtc_wdt_protect_off)
 esp-idf/log/liblog.a(log.c.obj)
                               esp-idf/bootloader_support/libbootloader_support.a(bootloader_common.c.obj) (esp_log_early_timestamp)
-/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
+/Users/David/esp/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
                               esp-idf/log/liblog.a(log.c.obj) (xthal_get_ccount)
 
 Discarded input sections
@@ -281,8 +281,8 @@ Discarded input sections
  .debug_abbrev  0x0000000000000000      0x11d esp-idf/soc/libsoc.a(gpio_periph.c.obj)
  .debug_aranges
                 0x0000000000000000       0x18 esp-idf/soc/libsoc.a(gpio_periph.c.obj)
- .debug_line    0x0000000000000000      0x266 esp-idf/soc/libsoc.a(gpio_periph.c.obj)
- .debug_str     0x0000000000000000      0x48e esp-idf/soc/libsoc.a(gpio_periph.c.obj)
+ .debug_line    0x0000000000000000      0x1f9 esp-idf/soc/libsoc.a(gpio_periph.c.obj)
+ .debug_str     0x0000000000000000      0x45f esp-idf/soc/libsoc.a(gpio_periph.c.obj)
  .comment       0x0000000000000000       0x28 esp-idf/soc/libsoc.a(gpio_periph.c.obj)
  .xt.prop       0x0000000000000000        0xc esp-idf/soc/libsoc.a(gpio_periph.c.obj)
  .literal.rtc_clk_32k_enable_external
@@ -419,15 +419,15 @@ Discarded input sections
                 0x0000000000000000      0x1da esp-idf/log/liblog.a(log.c.obj)
  .xt.lit        0x0000000000000000       0x20 esp-idf/log/liblog.a(log.c.obj)
  .xt.prop       0x0000000000000000      0x354 esp-idf/log/liblog.a(log.c.obj)
- .text          0x0000000000000000       0x48 /Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
- .data          0x0000000000000000        0x0 /Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
- .bss           0x0000000000000000        0x0 /Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
- .debug_line    0x0000000000000000       0x92 /Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
- .debug_info    0x0000000000000000       0x53 /Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
- .debug_abbrev  0x0000000000000000       0x14 /Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
+ .text          0x0000000000000000       0x48 /Users/David/esp/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
+ .data          0x0000000000000000        0x0 /Users/David/esp/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
+ .bss           0x0000000000000000        0x0 /Users/David/esp/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
+ .debug_line    0x0000000000000000       0x92 /Users/David/esp/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
+ .debug_info    0x0000000000000000       0x53 /Users/David/esp/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
+ .debug_abbrev  0x0000000000000000       0x14 /Users/David/esp/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
  .debug_aranges
-                0x0000000000000000       0x20 /Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
- .xt.prop       0x0000000000000000       0xd8 /Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
+                0x0000000000000000       0x20 /Users/David/esp/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
+ .xt.prop       0x0000000000000000       0xd8 /Users/David/esp/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
 
 Memory Configuration
 
@@ -462,7 +462,7 @@ LOAD esp-idf/log/liblog.a
 LOAD esp-idf/soc/libsoc.a
 LOAD esp-idf/xtensa/libxtensa.a
 LOAD esp-idf/log/liblog.a
-LOAD /Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/xtensa/esp32/libhal.a
+LOAD /Users/David/esp/esp-idf/components/xtensa/esp32/libhal.a
                 [!provide]                        PROVIDE (UART0 = 0x3ff40000)
                 0x000000003ff42000                PROVIDE (SPI1 = 0x3ff42000)
                 [!provide]                        PROVIDE (SPI0 = 0x3ff43000)
@@ -3170,7 +3170,7 @@ LOAD /Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/xtensa
  *(.jcr)
                 0x000000003fff001c                _data_end = ABSOLUTE (.)
 
-.dram0.rodata   0x000000003fff001c     0x19d8
+.dram0.rodata   0x000000003fff001c     0x1938
                 0x000000003fff001c                _rodata_start = ABSOLUTE (.)
  *(.rodata)
  .rodata        0x000000003fff001c       0x14 esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
@@ -3225,128 +3225,129 @@ LOAD /Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/xtensa
                 0x000000003fff085c       0x5a esp-idf/bootloader_support/libbootloader_support.a(esp_image_format.c.obj)
  *fill*         0x000000003fff08b6        0x2 
  .rodata.process_segment.str1.4
-                0x000000003fff08b8      0x227 esp-idf/bootloader_support/libbootloader_support.a(esp_image_format.c.obj)
-                                        0x22b (size before relaxing)
- *fill*         0x000000003fff0adf        0x1 
+                0x000000003fff08b8      0x207 esp-idf/bootloader_support/libbootloader_support.a(esp_image_format.c.obj)
+                                        0x20b (size before relaxing)
+ *fill*         0x000000003fff0abf        0x1 
  .rodata.image_load.str1.4
-                0x000000003fff0ae0      0x10a esp-idf/bootloader_support/libbootloader_support.a(esp_image_format.c.obj)
- *fill*         0x000000003fff0bea        0x2 
+                0x000000003fff0ac0      0x10a esp-idf/bootloader_support/libbootloader_support.a(esp_image_format.c.obj)
+ *fill*         0x000000003fff0bca        0x2 
  .rodata.__func__$4299
-                0x000000003fff0bec       0x20 esp-idf/bootloader_support/libbootloader_support.a(esp_image_format.c.obj)
+                0x000000003fff0bcc       0x20 esp-idf/bootloader_support/libbootloader_support.a(esp_image_format.c.obj)
  .rodata.esp_partition_table_verify.str1.4
-                0x000000003fff0c0c      0x163 esp-idf/bootloader_support/libbootloader_support.a(flash_partitions.c.obj)
- *fill*         0x000000003fff0d6f        0x1 
+                0x000000003fff0bec      0x163 esp-idf/bootloader_support/libbootloader_support.a(flash_partitions.c.obj)
+ *fill*         0x000000003fff0d4f        0x1 
  .rodata.wdt_reset_info_dump.str1.4
-                0x000000003fff0d70       0x82 esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
+                0x000000003fff0d50       0x82 esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
                                          0x8a (size before relaxing)
- *fill*         0x000000003fff0df2        0x2 
+ *fill*         0x000000003fff0dd2        0x2 
  .rodata.print_flash_info.str1.4
-                0x000000003fff0df4       0xeb esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
- *fill*         0x000000003fff0edf        0x1 
+                0x000000003fff0dd4       0xeb esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
+ *fill*         0x000000003fff0ebf        0x1 
  .rodata.print_flash_info
-                0x000000003fff0ee0       0x14 esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
+                0x000000003fff0ec0       0x14 esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
  .rodata.wdt_reset_check.str1.4
-                0x000000003fff0ef4       0x6e esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
- *fill*         0x000000003fff0f62        0x2 
+                0x000000003fff0ed4       0x6e esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
+ *fill*         0x000000003fff0f42        0x2 
  .rodata.update_flash_config
-                0x000000003fff0f64       0x14 esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
+                0x000000003fff0f44       0x14 esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
  .rodata.bootloader_main.str1.4
-                0x000000003fff0f78       0xf8 esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
+                0x000000003fff0f58       0xf8 esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
  .rodata.__assert_func.str1.4
-                0x000000003fff1070       0x37 esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
- *fill*         0x000000003fff10a7        0x1 
+                0x000000003fff1050       0x37 esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
+ *fill*         0x000000003fff1087        0x1 
  .rodata.bootloader_init.str1.4
-                0x000000003fff10a8       0xce esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
- *fill*         0x000000003fff1176        0x2 
+                0x000000003fff1088       0xae esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
+ *fill*         0x000000003fff1136        0x2 
  .rodata.abort.str1.4
-                0x000000003fff1178       0x22 esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
- *fill*         0x000000003fff119a        0x2 
+                0x000000003fff1138       0x22 esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
+ *fill*         0x000000003fff115a        0x2 
  .rodata.__func__$7738
-                0x000000003fff119c       0x10 esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
+                0x000000003fff115c       0x10 esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
  .rodata.bootloader_sha256_data.str1.4
-                0x000000003fff11ac       0x96 esp-idf/bootloader_support/libbootloader_support.a(bootloader_sha.c.obj)
- *fill*         0x000000003fff1242        0x2 
+                0x000000003fff116c       0x76 esp-idf/bootloader_support/libbootloader_support.a(bootloader_sha.c.obj)
+ *fill*         0x000000003fff11e2        0x2 
  .rodata.bootloader_sha256_finish.str1.4
-                0x000000003fff1244       0x5c esp-idf/bootloader_support/libbootloader_support.a(bootloader_sha.c.obj)
+                0x000000003fff11e4       0x5c esp-idf/bootloader_support/libbootloader_support.a(bootloader_sha.c.obj)
  .rodata.padding$4090
-                0x000000003fff12a0       0x40 esp-idf/bootloader_support/libbootloader_support.a(bootloader_sha.c.obj)
+                0x000000003fff1240       0x40 esp-idf/bootloader_support/libbootloader_support.a(bootloader_sha.c.obj)
  .rodata.__func__$4086
-                0x000000003fff12e0       0x19 esp-idf/bootloader_support/libbootloader_support.a(bootloader_sha.c.obj)
- *fill*         0x000000003fff12f9        0x3 
+                0x000000003fff1280       0x19 esp-idf/bootloader_support/libbootloader_support.a(bootloader_sha.c.obj)
+ *fill*         0x000000003fff1299        0x3 
  .rodata.__func__$4066
-                0x000000003fff12fc       0x17 esp-idf/bootloader_support/libbootloader_support.a(bootloader_sha.c.obj)
- *fill*         0x000000003fff1313        0x1 
+                0x000000003fff129c       0x17 esp-idf/bootloader_support/libbootloader_support.a(bootloader_sha.c.obj)
+ *fill*         0x000000003fff12b3        0x1 
  .rodata.bootloader_flash_read_allow_decrypt.str1.4
-                0x000000003fff1314       0x4b esp-idf/bootloader_support/libbootloader_support.a(bootloader_flash.c.obj)
- *fill*         0x000000003fff135f        0x1 
+                0x000000003fff12b4       0x4b esp-idf/bootloader_support/libbootloader_support.a(bootloader_flash.c.obj)
+ *fill*         0x000000003fff12ff        0x1 
  .rodata.bootloader_mmap.str1.4
-                0x000000003fff1360       0x6e esp-idf/bootloader_support/libbootloader_support.a(bootloader_flash.c.obj)
- *fill*         0x000000003fff13ce        0x2 
+                0x000000003fff1300       0x6e esp-idf/bootloader_support/libbootloader_support.a(bootloader_flash.c.obj)
+ *fill*         0x000000003fff136e        0x2 
  .rodata.bootloader_flash_read.str1.4
-                0x000000003fff13d0       0xe6 esp-idf/bootloader_support/libbootloader_support.a(bootloader_flash.c.obj)
- *fill*         0x000000003fff14b6        0x2 
+                0x000000003fff1370       0xe6 esp-idf/bootloader_support/libbootloader_support.a(bootloader_flash.c.obj)
+ *fill*         0x000000003fff1456        0x2 
  .rodata.bootloader_flash_write.str1.4
-                0x000000003fff14b8       0xea esp-idf/bootloader_support/libbootloader_support.a(bootloader_flash.c.obj)
- *fill*         0x000000003fff15a2        0x2 
+                0x000000003fff1458       0xea esp-idf/bootloader_support/libbootloader_support.a(bootloader_flash.c.obj)
+ *fill*         0x000000003fff1542        0x2 
  .rodata.bootloader_fill_random.str1.4
-                0x000000003fff15a4       0x80 esp-idf/bootloader_support/libbootloader_support.a(bootloader_random.c.obj)
+                0x000000003fff1544       0x5f esp-idf/bootloader_support/libbootloader_support.a(bootloader_random.c.obj)
+ *fill*         0x000000003fff15a3        0x1 
  .rodata.__func__$4752
-                0x000000003fff1624       0x17 esp-idf/bootloader_support/libbootloader_support.a(bootloader_random.c.obj)
- *fill*         0x000000003fff163b        0x1 
+                0x000000003fff15a4       0x17 esp-idf/bootloader_support/libbootloader_support.a(bootloader_random.c.obj)
+ *fill*         0x000000003fff15bb        0x1 
  .rodata.rtc_clk_cpu_freq_value.str1.4
-                0x000000003fff163c       0x3c esp-idf/soc/libsoc.a(rtc_clk.c.obj)
+                0x000000003fff15bc       0x3c esp-idf/soc/libsoc.a(rtc_clk.c.obj)
  .rodata.rtc_clk_cpu_freq_get_config.str1.4
-                0x000000003fff1678       0x3b esp-idf/soc/libsoc.a(rtc_clk.c.obj)
- *fill*         0x000000003fff16b3        0x1 
+                0x000000003fff15f8       0x3b esp-idf/soc/libsoc.a(rtc_clk.c.obj)
+ *fill*         0x000000003fff1633        0x1 
  .rodata.rtc_clk_cpu_freq_to_pll_mhz.str1.4
-                0x000000003fff16b4       0x29 esp-idf/soc/libsoc.a(rtc_clk.c.obj)
- *fill*         0x000000003fff16dd        0x3 
+                0x000000003fff1634       0x29 esp-idf/soc/libsoc.a(rtc_clk.c.obj)
+ *fill*         0x000000003fff165d        0x3 
  .rodata.rtc_clk_xtal_freq_estimate.str1.4
-                0x000000003fff16e0       0xec esp-idf/soc/libsoc.a(rtc_clk_init.c.obj)
+                0x000000003fff1660       0xec esp-idf/soc/libsoc.a(rtc_clk_init.c.obj)
  .rodata.rtc_clk_xtal_freq_estimate
-                0x000000003fff17cc       0x64 esp-idf/soc/libsoc.a(rtc_clk_init.c.obj)
+                0x000000003fff174c       0x64 esp-idf/soc/libsoc.a(rtc_clk_init.c.obj)
  .rodata.rtc_clk_init.str1.4
-                0x000000003fff1830       0xdf esp-idf/soc/libsoc.a(rtc_clk_init.c.obj)
- *fill*         0x000000003fff190f        0x1 
+                0x000000003fff17b0       0xdf esp-idf/soc/libsoc.a(rtc_clk_init.c.obj)
+ *fill*         0x000000003fff188f        0x1 
  .rodata.rtc_clk_cal_internal.str1.4
-                0x000000003fff1910       0xcc esp-idf/soc/libsoc.a(rtc_time.c.obj)
-                                         0xc9 (size before relaxing)
+                0x000000003fff1890       0xac esp-idf/soc/libsoc.a(rtc_time.c.obj)
+                                         0xa9 (size before relaxing)
  .rodata.__func__$3603
-                0x000000003fff19dc       0x15 esp-idf/soc/libsoc.a(rtc_time.c.obj)
+                0x000000003fff193c       0x15 esp-idf/soc/libsoc.a(rtc_time.c.obj)
  *(.gnu.linkonce.r.*)
  *(.rodata1)
-                0x000000003fff19f1                __XT_EXCEPTION_TABLE_ = ABSOLUTE (.)
+                0x000000003fff1951                __XT_EXCEPTION_TABLE_ = ABSOLUTE (.)
  *(.xt_except_table)
  *(.gcc_except_table)
  *(.gnu.linkonce.e.*)
  *(.gnu.version_r)
  *(.eh_frame)
-                0x000000003fff19f4                . = ((. + 0x3) & 0xfffffffffffffffc)
- *fill*         0x000000003fff19f1        0x3 
-                0x000000003fff19f4                __init_array_start = ABSOLUTE (.)
+                0x000000003fff1954                . = ((. + 0x3) & 0xfffffffffffffffc)
+ *fill*         0x000000003fff1951        0x3 
+                0x000000003fff1954                __init_array_start = ABSOLUTE (.)
  *crtbegin.*(.ctors)
  *(EXCLUDE_FILE(*crtend.*) .ctors)
  *(SORT_BY_NAME(.ctors.*))
  *(.ctors)
-                0x000000003fff19f4                __init_array_end = ABSOLUTE (.)
+                0x000000003fff1954                __init_array_end = ABSOLUTE (.)
  *crtbegin.*(.dtors)
  *(EXCLUDE_FILE(*crtend.*) .dtors)
  *(SORT_BY_NAME(.dtors.*))
  *(.dtors)
-                0x000000003fff19f4                __XT_EXCEPTION_DESCS_ = ABSOLUTE (.)
+                0x000000003fff1954                __XT_EXCEPTION_DESCS_ = ABSOLUTE (.)
  *(.xt_except_desc)
  *(.gnu.linkonce.h.*)
-                0x000000003fff19f4                __XT_EXCEPTION_DESCS_END__ = ABSOLUTE (.)
+                0x000000003fff1954                __XT_EXCEPTION_DESCS_END__ = ABSOLUTE (.)
  *(.xt_except_desc_end)
  *(.dynamic)
  *(.gnu.version_d)
-                0x000000003fff19f4                _rodata_end = ABSOLUTE (.)
-                0x000000003fff19f4                _lit4_start = ABSOLUTE (.)
+                0x000000003fff1954                _rodata_end = ABSOLUTE (.)
+                0x000000003fff1954                _lit4_start = ABSOLUTE (.)
  *(*.lit4)
  *(.lit4.*)
  *(.gnu.linkonce.lit4.*)
-                0x000000003fff19f4                _lit4_end = ABSOLUTE (.)
-                0x000000003fff19f4                . = ALIGN (0x4)
+                0x000000003fff1954                _lit4_end = ABSOLUTE (.)
+                0x000000003fff1954                . = ALIGN (0x4)
                 0x0000000040008550                PROVIDE (ets_update_cpu_frequency = 0x40008550)
                 0x000000004005db1c                PROVIDE (MD5Final = 0x4005db1c)
                 0x000000004005da7c                PROVIDE (MD5Init = 0x4005da7c)
@@ -3379,7 +3380,7 @@ OUTPUT(bootloader.elf elf32-xtensa-le)
  .xtensa.info   0x0000000000000038        0x0 esp-idf/soc/libsoc.a(rtc_time.c.obj)
  .xtensa.info   0x0000000000000038        0x0 esp-idf/soc/libsoc.a(rtc_wdt.c.obj)
  .xtensa.info   0x0000000000000038        0x0 esp-idf/log/liblog.a(log.c.obj)
- .xtensa.info   0x0000000000000038        0x0 /Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
+ .xtensa.info   0x0000000000000038        0x0 /Users/David/esp/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
 
 .comment        0x0000000000000000       0x27
  .comment       0x0000000000000000       0x27 esp-idf/main/libmain.a(bootloader_start.c.obj)
@@ -3556,69 +3557,69 @@ OUTPUT(bootloader.elf elf32-xtensa-le)
  .debug_ranges  0x00000000000006f0       0x68 esp-idf/soc/libsoc.a(rtc_wdt.c.obj)
  .debug_ranges  0x0000000000000758       0x28 esp-idf/log/liblog.a(log.c.obj)
 
-.debug_line     0x0000000000000000    0x12e05
- .debug_line    0x0000000000000000      0x693 esp-idf/main/libmain.a(bootloader_start.c.obj)
- .debug_line    0x0000000000000693     0x1fa1 esp-idf/bootloader_support/libbootloader_support.a(bootloader_utility.c.obj)
- .debug_line    0x0000000000002634     0x1fb0 esp-idf/bootloader_support/libbootloader_support.a(esp_image_format.c.obj)
- .debug_line    0x00000000000045e4      0x84c esp-idf/bootloader_support/libbootloader_support.a(flash_partitions.c.obj)
- .debug_line    0x0000000000004e30     0x1a83 esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
- .debug_line    0x00000000000068b3      0x8cb esp-idf/bootloader_support/libbootloader_support.a(bootloader_sha.c.obj)
- .debug_line    0x000000000000717e      0x6ac esp-idf/bootloader_support/libbootloader_support.a(bootloader_clock.c.obj)
- .debug_line    0x000000000000782a     0x13a9 esp-idf/bootloader_support/libbootloader_support.a(bootloader_common.c.obj)
- .debug_line    0x0000000000008bd3     0x1355 esp-idf/bootloader_support/libbootloader_support.a(bootloader_flash.c.obj)
- .debug_line    0x0000000000009f28      0x96e esp-idf/bootloader_support/libbootloader_support.a(bootloader_flash_config.c.obj)
- .debug_line    0x000000000000a896      0x8ee esp-idf/bootloader_support/libbootloader_support.a(bootloader_random.c.obj)
- .debug_line    0x000000000000b184      0xc97 esp-idf/bootloader_support/libbootloader_support.a(flash_qio_mode.c.obj)
- .debug_line    0x000000000000be1b     0x1b39 esp-idf/spi_flash/libspi_flash.a(spi_flash_rom_patch.c.obj)
- .debug_line    0x000000000000d954      0x479 esp-idf/soc/libsoc.a(cpu_util.c.obj)
- .debug_line    0x000000000000ddcd     0x1c1a esp-idf/soc/libsoc.a(rtc_clk.c.obj)
- .debug_line    0x000000000000f9e7      0xacb esp-idf/soc/libsoc.a(rtc_clk_init.c.obj)
- .debug_line    0x00000000000104b2      0xa09 esp-idf/soc/libsoc.a(rtc_init.c.obj)
- .debug_line    0x0000000000010ebb      0x9f2 esp-idf/soc/libsoc.a(rtc_time.c.obj)
- .debug_line    0x00000000000118ad      0x963 esp-idf/soc/libsoc.a(rtc_wdt.c.obj)
- .debug_line    0x0000000000012210      0xbf5 esp-idf/log/liblog.a(log.c.obj)
+.debug_line     0x0000000000000000    0x11b8a
+ .debug_line    0x0000000000000000      0x5da esp-idf/main/libmain.a(bootloader_start.c.obj)
+ .debug_line    0x00000000000005da     0x1e22 esp-idf/bootloader_support/libbootloader_support.a(bootloader_utility.c.obj)
+ .debug_line    0x00000000000023fc     0x1e52 esp-idf/bootloader_support/libbootloader_support.a(esp_image_format.c.obj)
+ .debug_line    0x000000000000424e      0x793 esp-idf/bootloader_support/libbootloader_support.a(flash_partitions.c.obj)
+ .debug_line    0x00000000000049e1     0x18c2 esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
+ .debug_line    0x00000000000062a3      0x812 esp-idf/bootloader_support/libbootloader_support.a(bootloader_sha.c.obj)
+ .debug_line    0x0000000000006ab5      0x5d2 esp-idf/bootloader_support/libbootloader_support.a(bootloader_clock.c.obj)
+ .debug_line    0x0000000000007087     0x126c esp-idf/bootloader_support/libbootloader_support.a(bootloader_common.c.obj)
+ .debug_line    0x00000000000082f3     0x1239 esp-idf/bootloader_support/libbootloader_support.a(bootloader_flash.c.obj)
+ .debug_line    0x000000000000952c      0x894 esp-idf/bootloader_support/libbootloader_support.a(bootloader_flash_config.c.obj)
+ .debug_line    0x0000000000009dc0      0x814 esp-idf/bootloader_support/libbootloader_support.a(bootloader_random.c.obj)
+ .debug_line    0x000000000000a5d4      0xbbd esp-idf/bootloader_support/libbootloader_support.a(flash_qio_mode.c.obj)
+ .debug_line    0x000000000000b191     0x1aa1 esp-idf/spi_flash/libspi_flash.a(spi_flash_rom_patch.c.obj)
+ .debug_line    0x000000000000cc32      0x3ca esp-idf/soc/libsoc.a(cpu_util.c.obj)
+ .debug_line    0x000000000000cffc     0x1b1f esp-idf/soc/libsoc.a(rtc_clk.c.obj)
+ .debug_line    0x000000000000eb1b      0x9d0 esp-idf/soc/libsoc.a(rtc_clk_init.c.obj)
+ .debug_line    0x000000000000f4eb      0x95a esp-idf/soc/libsoc.a(rtc_init.c.obj)
+ .debug_line    0x000000000000fe45      0x939 esp-idf/soc/libsoc.a(rtc_time.c.obj)
+ .debug_line    0x000000000001077e      0x8d0 esp-idf/soc/libsoc.a(rtc_wdt.c.obj)
+ .debug_line    0x000000000001104e      0xb3c esp-idf/log/liblog.a(log.c.obj)
 
-.debug_str      0x0000000000000000     0x9940
- .debug_str     0x0000000000000000      0x993 esp-idf/main/libmain.a(bootloader_start.c.obj)
-                                        0xa57 (size before relaxing)
- .debug_str     0x0000000000000993     0x361a esp-idf/bootloader_support/libbootloader_support.a(bootloader_utility.c.obj)
-                                       0x412b (size before relaxing)
- .debug_str     0x0000000000003fad      0x610 esp-idf/bootloader_support/libbootloader_support.a(esp_image_format.c.obj)
-                                       0x1c77 (size before relaxing)
- .debug_str     0x00000000000045bd       0xc3 esp-idf/bootloader_support/libbootloader_support.a(flash_partitions.c.obj)
-                                        0x852 (size before relaxing)
- .debug_str     0x0000000000004680     0x1e52 esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
-                                       0x5b42 (size before relaxing)
- .debug_str     0x00000000000064d2      0x115 esp-idf/bootloader_support/libbootloader_support.a(bootloader_sha.c.obj)
-                                       0x12ac (size before relaxing)
- .debug_str     0x00000000000065e7      0x27a esp-idf/bootloader_support/libbootloader_support.a(bootloader_clock.c.obj)
-                                       0x3495 (size before relaxing)
- .debug_str     0x0000000000006861      0x3dc esp-idf/bootloader_support/libbootloader_support.a(bootloader_common.c.obj)
-                                       0x29b7 (size before relaxing)
- .debug_str     0x0000000000006c3d      0x233 esp-idf/bootloader_support/libbootloader_support.a(bootloader_flash.c.obj)
-                                       0x1722 (size before relaxing)
- .debug_str     0x0000000000006e70      0x155 esp-idf/bootloader_support/libbootloader_support.a(bootloader_flash_config.c.obj)
-                                        0xbba (size before relaxing)
- .debug_str     0x0000000000006fc5     0x14cc esp-idf/bootloader_support/libbootloader_support.a(bootloader_random.c.obj)
-                                       0x41e2 (size before relaxing)
- .debug_str     0x0000000000008491      0x339 esp-idf/bootloader_support/libbootloader_support.a(flash_qio_mode.c.obj)
-                                       0x242b (size before relaxing)
- .debug_str     0x00000000000087ca      0x380 esp-idf/spi_flash/libspi_flash.a(spi_flash_rom_patch.c.obj)
-                                       0x25c5 (size before relaxing)
- .debug_str     0x0000000000008b4a       0x8d esp-idf/soc/libsoc.a(cpu_util.c.obj)
-                                       0x2557 (size before relaxing)
- .debug_str     0x0000000000008bd7      0x6a7 esp-idf/soc/libsoc.a(rtc_clk.c.obj)
-                                       0x45f0 (size before relaxing)
- .debug_str     0x000000000000927e      0x113 esp-idf/soc/libsoc.a(rtc_clk_init.c.obj)
-                                       0x42a8 (size before relaxing)
- .debug_str     0x0000000000009391       0xd9 esp-idf/soc/libsoc.a(rtc_init.c.obj)
-                                       0x2816 (size before relaxing)
- .debug_str     0x000000000000946a      0x15a esp-idf/soc/libsoc.a(rtc_time.c.obj)
-                                       0x23aa (size before relaxing)
- .debug_str     0x00000000000095c4      0x14e esp-idf/soc/libsoc.a(rtc_wdt.c.obj)
-                                       0x21a4 (size before relaxing)
- .debug_str     0x0000000000009712      0x22e esp-idf/log/liblog.a(log.c.obj)
-                                       0x122c (size before relaxing)
+.debug_str      0x0000000000000000     0x969e
+ .debug_str     0x0000000000000000      0x964 esp-idf/main/libmain.a(bootloader_start.c.obj)
+                                        0xa28 (size before relaxing)
+ .debug_str     0x0000000000000964     0x35f9 esp-idf/bootloader_support/libbootloader_support.a(bootloader_utility.c.obj)
+                                       0x40fc (size before relaxing)
+ .debug_str     0x0000000000003f5d      0x5ef esp-idf/bootloader_support/libbootloader_support.a(esp_image_format.c.obj)
+                                       0x1c48 (size before relaxing)
+ .debug_str     0x000000000000454c       0xa2 esp-idf/bootloader_support/libbootloader_support.a(flash_partitions.c.obj)
+                                        0x823 (size before relaxing)
+ .debug_str     0x00000000000045ee     0x1e31 esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
+                                       0x5b13 (size before relaxing)
+ .debug_str     0x000000000000641f       0xf4 esp-idf/bootloader_support/libbootloader_support.a(bootloader_sha.c.obj)
+                                       0x127d (size before relaxing)
+ .debug_str     0x0000000000006513      0x259 esp-idf/bootloader_support/libbootloader_support.a(bootloader_clock.c.obj)
+                                       0x3466 (size before relaxing)
+ .debug_str     0x000000000000676c      0x3bb esp-idf/bootloader_support/libbootloader_support.a(bootloader_common.c.obj)
+                                       0x2988 (size before relaxing)
+ .debug_str     0x0000000000006b27      0x212 esp-idf/bootloader_support/libbootloader_support.a(bootloader_flash.c.obj)
+                                       0x16f3 (size before relaxing)
+ .debug_str     0x0000000000006d39      0x134 esp-idf/bootloader_support/libbootloader_support.a(bootloader_flash_config.c.obj)
+                                        0xb8b (size before relaxing)
+ .debug_str     0x0000000000006e6d     0x14ab esp-idf/bootloader_support/libbootloader_support.a(bootloader_random.c.obj)
+                                       0x41b3 (size before relaxing)
+ .debug_str     0x0000000000008318      0x318 esp-idf/bootloader_support/libbootloader_support.a(flash_qio_mode.c.obj)
+                                       0x23fc (size before relaxing)
+ .debug_str     0x0000000000008630      0x35f esp-idf/spi_flash/libspi_flash.a(spi_flash_rom_patch.c.obj)
+                                       0x2596 (size before relaxing)
+ .debug_str     0x000000000000898f       0x6c esp-idf/soc/libsoc.a(cpu_util.c.obj)
+                                       0x2528 (size before relaxing)
+ .debug_str     0x00000000000089fb      0x686 esp-idf/soc/libsoc.a(rtc_clk.c.obj)
+                                       0x45c1 (size before relaxing)
+ .debug_str     0x0000000000009081       0xf2 esp-idf/soc/libsoc.a(rtc_clk_init.c.obj)
+                                       0x4279 (size before relaxing)
+ .debug_str     0x0000000000009173       0xb8 esp-idf/soc/libsoc.a(rtc_init.c.obj)
+                                       0x27e7 (size before relaxing)
+ .debug_str     0x000000000000922b      0x139 esp-idf/soc/libsoc.a(rtc_time.c.obj)
+                                       0x237b (size before relaxing)
+ .debug_str     0x0000000000009364      0x12d esp-idf/soc/libsoc.a(rtc_wdt.c.obj)
+                                       0x2175 (size before relaxing)
+ .debug_str     0x0000000000009491      0x20d esp-idf/log/liblog.a(log.c.obj)
+                                       0x11fd (size before relaxing)
 
 Cross Reference Table
 
@@ -3954,7 +3955,7 @@ strstr                                            esp-idf/bootloader_support/lib
 uartAttach                                        esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
 uart_div_modify                                   esp-idf/bootloader_support/libbootloader_support.a(bootloader_init.c.obj)
 uart_tx_flush                                     esp-idf/bootloader_support/libbootloader_support.a(bootloader_utility.c.obj)
-xthal_get_ccompare                                /Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
-xthal_get_ccount                                  /Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
+xthal_get_ccompare                                /Users/David/esp/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
+xthal_get_ccount                                  /Users/David/esp/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
                                                   esp-idf/log/liblog.a(log.c.obj)
-xthal_set_ccompare                                /Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/xtensa/esp32/libhal.a(clock.o)
+xthal_set_ccompare                                /Users/David/esp/esp-idf/components/xtensa/esp32/libhal.a(clock.o)

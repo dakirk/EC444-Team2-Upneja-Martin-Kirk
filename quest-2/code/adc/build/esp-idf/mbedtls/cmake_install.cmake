@@ -1,4 +1,4 @@
-# Install script for directory: /Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/mbedtls
+# Install script for directory: /Users/David/esp/esp-idf/components/mbedtls
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -34,7 +34,7 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("/Users/kylemartin/Documents/senioryear/fall/EC444/Martin-Kyle/skills/cluster-2-sensor/15-battery/code/adc/build/esp-idf/mbedtls/mbedtls/cmake_install.cmake")
+  include("/Users/David/Desktop/College_Stuff/EC444_Projects/Team2-Upneja-Martin-Kirk/quest-2/code/adc/build/esp-idf/mbedtls/mbedtls/cmake_install.cmake")
 
 endif()
 

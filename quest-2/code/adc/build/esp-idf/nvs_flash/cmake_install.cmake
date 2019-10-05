@@ -1,4 +1,4 @@
-# Install script for directory: /Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/nvs_flash
+# Install script for directory: /Users/David/esp/esp-idf/components/nvs_flash
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

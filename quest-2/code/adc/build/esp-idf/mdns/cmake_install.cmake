@@ -1,4 +1,4 @@
-# Install script for directory: /Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/mdns
+# Install script for directory: /Users/David/esp/esp-idf/components/mdns
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

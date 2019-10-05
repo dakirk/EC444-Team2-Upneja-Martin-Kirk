@@ -1,8 +1,8 @@
 {
     "project_name":       "bootloader",
-    "project_path":       "/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/bootloader/subproject",
-    "build_dir":          "/Users/kylemartin/Documents/senioryear/fall/EC444/Martin-Kyle/skills/cluster-2-sensor/15-battery/code/adc/build/bootloader",
-    "config_file":        "/Users/kylemartin/Documents/senioryear/fall/EC444/Martin-Kyle/skills/cluster-2-sensor/15-battery/code/adc/sdkconfig",
+    "project_path":       "/Users/David/esp/esp-idf/components/bootloader/subproject",
+    "build_dir":          "/Users/David/Desktop/College_Stuff/EC444_Projects/Team2-Upneja-Martin-Kirk/quest-2/code/adc/build/bootloader",
+    "config_file":        "/Users/David/Desktop/College_Stuff/EC444_Projects/Team2-Upneja-Martin-Kirk/quest-2/code/adc/sdkconfig",
     "config_defaults":    "",
     "app_elf":            "bootloader.elf",
     "app_bin":            "bootloader.bin",
@@ -10,9 +10,9 @@
     "phy_data_partition": "",
     "monitor_baud" : "115200",
     "config_environment" : {
-        "COMPONENT_KCONFIGS" : "/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/efuse/Kconfig;/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/esp32/Kconfig;/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/esp_common/Kconfig;/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/log/Kconfig;/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/spi_flash/Kconfig",
-        "COMPONENT_KCONFIGS_PROJBUILD" : "/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/bootloader/Kconfig.projbuild;/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/esptool_py/Kconfig.projbuild;/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/partition_table/Kconfig.projbuild"
+        "COMPONENT_KCONFIGS" : "/Users/David/esp/esp-idf/components/efuse/Kconfig;/Users/David/esp/esp-idf/components/esp32/Kconfig;/Users/David/esp/esp-idf/components/esp_common/Kconfig;/Users/David/esp/esp-idf/components/log/Kconfig;/Users/David/esp/esp-idf/components/spi_flash/Kconfig",
+        "COMPONENT_KCONFIGS_PROJBUILD" : "/Users/David/esp/esp-idf/components/bootloader/Kconfig.projbuild;/Users/David/esp/esp-idf/components/esptool_py/Kconfig.projbuild;/Users/David/esp/esp-idf/components/partition_table/Kconfig.projbuild"
     },
     "build_components" : [ "bootloader", "bootloader_support", "efuse", "esp32", "esp_common", "esp_rom", "esptool_py", "log", "main", "micro-ecc", "partition_table", "soc", "spi_flash", "xtensa", "" ],
-    "build_component_paths" : [ "/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/bootloader", "/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/bootloader_support", "/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/efuse", "/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/esp32", "/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/esp_common", "/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/esp_rom", "/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/esptool_py", "/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/log", "/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/bootloader/subproject/main", "/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/bootloader/subproject/components/micro-ecc", "/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/partition_table", "/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/soc", "/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/spi_flash", "/Users/kylemartin/Documents/senioryear/fall/EC444/esp-idf/components/xtensa", "" ]
+    "build_component_paths" : [ "/Users/David/esp/esp-idf/components/bootloader", "/Users/David/esp/esp-idf/components/bootloader_support", "/Users/David/esp/esp-idf/components/efuse", "/Users/David/esp/esp-idf/components/esp32", "/Users/David/esp/esp-idf/components/esp_common", "/Users/David/esp/esp-idf/components/esp_rom", "/Users/David/esp/esp-idf/components/esptool_py", "/Users/David/esp/esp-idf/components/log", "/Users/David/esp/esp-idf/components/bootloader/subproject/main", "/Users/David/esp/esp-idf/components/bootloader/subproject/components/micro-ecc", "/Users/David/esp/esp-idf/components/partition_table", "/Users/David/esp/esp-idf/components/soc", "/Users/David/esp/esp-idf/components/spi_flash", "/Users/David/esp/esp-idf/components/xtensa", "" ]
 }

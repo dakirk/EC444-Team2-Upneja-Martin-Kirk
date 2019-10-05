@@ -1,4 +1,4 @@
-# Install script for directory: /Users/kylemartin/Documents/senioryear/fall/EC444/Martin-Kyle/skills/cluster-2-sensor/15-battery/code/adc/main
+# Install script for directory: /Users/David/Desktop/College_Stuff/EC444_Projects/Team2-Upneja-Martin-Kirk/quest-2/code/adc/main
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
