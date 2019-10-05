@@ -54,7 +54,7 @@ static void led_counter();
 static void flag_alarm();
 
 int direction = 1; // 1 for up, -1 for down
-int alarmSetting = 5;
+int alarmSetting = 86400;
 int currentTime = 0;
 int alarm_flag = 0;
 
@@ -270,11 +270,11 @@ void formatTime(char outputTime[], int secondsSinceMidnight) {
   char hours[8];
   char mins[8];
 
-  //int intHours = currentTime / 3600;
-  //int intMins = (currentTime / 60) % 60;
+  int intHours = currentTime / 3600;
+  int intMins = (currentTime / 60) % 60;
 
-  intHours = currentTime / 60 % 60;
-  intMins = currentTime % 60;
+  //intHours = currentTime / 60 % 60;
+  //intMins = currentTime % 60;
 
   //itoa(intHours, hours, 10);
   //itoa(intMins, mins, 10);
