@@ -1,0 +1,14 @@
+{
+  "name": "webapp",
+  "version": "1.0.0",
+  "description": "Web app for raspberry pi to read serial input",
+  "main": "read-serialport.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "David Kirk",
+  "license": "ISC",
+  "dependencies": {
+    "serialport": "^7.1.5"
+  }
+}

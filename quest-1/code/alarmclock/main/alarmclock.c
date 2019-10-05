@@ -50,9 +50,10 @@
 #define TEST_WITH_RELOAD      1     // Testing will be done with auto reload
 
 static void led_counter();
+static void flag_alarm();
 
 int direction = 1; // 1 for up, -1 for down
-int alarmSetting = 0;
+int alarmSetting = 5;
 int currentTime = 0;
 int alarm_flag = 0;
 
@@ -108,7 +109,7 @@ static void alarm_init() {
     timer_start(TIMER_GROUP_0, TIMER_0);
 }
 
-// The main task of this example program
+// Handles timing, in 1-second increments
 static void timer_evt_task(void *arg) {
     while (1) {
         // Create dummy structure to store structure from queue
@@ -119,9 +120,10 @@ static void timer_evt_task(void *arg) {
 
         // Do something if triggered!
         if (evt.flag == 1) {
-            printf("Time: %d\n", currentTime);
+            //printf("Time: %d\n", currentTime);
 
-            led_counter();
+            //led_counter();
+            flag_alarm();
 
             if (currentTime >= 86399) {
               currentTime = 0;
@@ -197,13 +199,13 @@ void servo_seconds(void *arg)
         for (count = 0; count < SERVO_MAX_DEGREE; count++) {
             angle = servo_per_degree_init((currentTime%60)*3);
             mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
-            vTaskDelay(33);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
+            vTaskDelay(10 / portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
         }
     }
 }
 void servo_minutes(void *arg)
 {
-    uint32_t angle, count;
+    uint32_t angle, count, pulse_width;
     //1. mcpwm gpio initialization
     mcpwm_example_gpio_initialize2();
 
@@ -218,11 +220,12 @@ void servo_minutes(void *arg)
     mcpwm_init(MCPWM_UNIT_1, MCPWM_TIMER_0, &pwm_config);    //Configure PWM0A & PWM0B with above settings
     while (1) {
         for (count = 0; count < SERVO2_MAX_DEGREE; count++) {
-            printf("Angle of rotation: %d\n", count);
-            angle = servo2_per_degree_init((currentTime%60)*3);
-            printf("pulse width: %dus\n", angle);
-            mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_A, angle);
-            vTaskDelay(1980);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
+            angle = ((currentTime/60)%60)*3;
+            pulse_width = servo2_per_degree_init(angle);
+            //printf("Angle of rotation: %d\n", angle);
+            //printf("pulse width: %dus\n", pulse_width);
+            mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_A, pulse_width);
+            vTaskDelay(100 / portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
         }
     }
 }
@@ -266,8 +269,11 @@ void formatTime(char outputTime[], int secondsSinceMidnight) {
   char hours[8];
   char mins[8];
 
-  int intHours = currentTime / 3600;
-  int intMins = (currentTime / 60) % 60;
+  //int intHours = currentTime / 3600;
+  //int intMins = (currentTime / 60) % 60;
+
+  intHours = currentTime / 60 % 60;
+  intMins = currentTime % 60;
 
   //itoa(intHours, hours, 10);
   //itoa(intMins, mins, 10);
@@ -371,6 +377,7 @@ void process_input() {
       if (mode[0] == 'A' && mode[1] == '\0') {
           printf("Enter alarm time in military time\n");
           gets(time);
+          printf("%s\n", time);
           chrs[0] = time[0];
           chrs[1] = time[1];
           cmins[0] = time[2];
@@ -381,6 +388,7 @@ void process_input() {
       } else if (mode[0] == 'T' && mode[1] == '\0'){
           printf("Enter currentTime time in military time\n");
           gets(time);
+          printf("%s\n", time);
           chrs[0] = time[0];
           chrs[1] = time[1];
           cmins[0] = time[2];
@@ -397,20 +405,39 @@ void process_input() {
 }
 
 void flag_alarm() {
-  if (currentTime == alarmSetting) {
+  if (currentTime == alarmSetting && alarm_flag == 0) {
     alarm_flag = 1;
-  } else {
-    alarm_flag = 0;
   }
 }
 
-void run_alarm() {
-  if (alarm_flag == 1) {
-    gpio_set_level(13, 1);
-    vTaskDelay(10000 / portTICK_PERIOD_MS);
-    alarm_flag = 0;
-  } else {
-    gpio_set_level(13, 0);
+static void run_alarm() {
+
+  while(1) {
+
+    int button_pressed;
+
+    if (alarm_flag == 1) {
+
+      button_pressed = gpio_get_level(A2);
+      //printf("Button val: %d\n", button_pressed);
+
+      if (button_pressed) {
+        alarm_flag = 0;
+        gpio_set_level(A6, 0);
+        gpio_set_level(A7, 0);
+        gpio_set_level(A8, 0);
+        gpio_set_level(A9, 0);
+      } else {
+
+        gpio_set_level(A6, 1);
+        gpio_set_level(A7, 1);
+        gpio_set_level(A8, 1);
+        gpio_set_level(A9, 1);  
+
+      }
+
+      vTaskDelay(100 / portTICK_PERIOD_MS);
+    }
   }
 }
 
@@ -535,6 +562,8 @@ void app_main() {
   xTaskCreate(servo_seconds, "servo_seconds", 4096, NULL, configMAX_PRIORITIES-2, NULL);
   xTaskCreate(servo_minutes, "servo_minutes", 4096, NULL, configMAX_PRIORITIES-3, NULL);
   xTaskCreate(process_input, "process_input", 4096, NULL, configMAX_PRIORITIES-4, NULL);
+  xTaskCreate(run_alarm, "run_alarm", 4096, NULL, configMAX_PRIORITIES-5, NULL);
+
   // Initiate alarm using timer API
   alarm_init();
 }
