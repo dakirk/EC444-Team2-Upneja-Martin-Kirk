@@ -178,12 +178,15 @@ static void rangefinder() {
 //displays sensor values on the console
 static void display_console() {
 
+    printf("Battery voltage (mV), temperature (C), ultrasonic distance (cm), infrared distance (cm)");
+
     while (1) {
 
-        printf("Voltage: %dmV\n", bat_voltage);
-        printf("Temperature: %dC\n", temp);
-        printf("Ultrasonic Distance: %dcm\n", us_distance);
-        printf("Rangefinder Distance: %dcm\n", ir_distance);
+        //printf("Voltage: %dmV\n", bat_voltage);
+        //printf("Temperature: %dC\n", temp);
+        //printf("Ultrasonic Distance: %dcm\n", us_distance);
+        //printf("Rangefinder Distance: %dcm\n", ir_distance);
+        printf("%d, %d, %d, %d\n", bat_voltage, temp, us_distance, ir_distance);
 
         vTaskDelay(pdMS_TO_TICKS(1000));
 
