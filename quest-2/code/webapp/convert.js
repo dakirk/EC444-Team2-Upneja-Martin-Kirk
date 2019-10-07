@@ -27,21 +27,6 @@ const path = 'sensor_data.csv'
 
 var parser = port.pipe(new Readline({ delimiter: '\n' }));
 
-
-const writeFileAsync = (newData) => {
-  const stringifiedData = JSON.stringify(newData);
-
-  fs.writeFile(FILE_NAME, stringifiedData, (error) => {
-    if (error) {
-      console.log('Async Write: NOT successful!');
-      console.log(error);
-    } else {
-      console.log('Async Write: successful!');
-      console.log(stringifiedData);
-    }
-  });
-};
-
 ////EXPRESS ROUTING////////////////////////////////////////////////////////////////
 
 // set up express
@@ -120,39 +105,6 @@ parser.on('data', data =>{
 });
 
 ////CSV CONVERSION////////////////////////////////////////////////////////////////
-
-
-csv()
-.fromFile(csvFilePath)
-.then((jsonObj)=>{
-  //  console.log(jsonObj);
-  console.log(jsonObj);
-  writeFileAsync(jsonObj);
-
-  /*  var chart1 = new CanvasJS.chart("chartContainer1"), {
-      title: {
-        text: "Live Data"
-      }
-      data: [{
-        type: "line",
-        name: "battery",
-        datapoints : [
-          { x: jsonObj[0][timestamp], y: jsonObj[0][battery] }
-        ]
-      }]
-    }
-    /**
-     * [
-     * 	{a:"1", b:"2", c:"3"},
-     * 	{a:"4", b:"5". c:"6"}
-     * ]
-     */
-})
-
-// Async / await usage
-
-const jsonArray= csv().fromFile(csvFilePath);
-
 
 app.listen(3000, function () {
   console.log("connected");
