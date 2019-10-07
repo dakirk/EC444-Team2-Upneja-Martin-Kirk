@@ -14,6 +14,7 @@ Test and debug.
 */
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
@@ -57,7 +58,7 @@ static const adc_unit_t unit = ADC_UNIT_1;
 //bat_monitor
 static const adc_channel_t channel1 = ADC_CHANNEL_4;     //GPIO32 
 //thermistor_monitor
-static const adc_channel_t channel2 = ADC_CHANNEL_9;     //GPIO36
+static const adc_channel_t channel2 = ADC_CHANNEL_0;     //GPIO36
 //ultrasonic_monitor
 static const adc_channel_t channel3 = ADC_CHANNEL_6;     //GPIO34 
 //rangefinder_monitor
@@ -110,8 +111,13 @@ static void thermistor() {
         //Convert adc_reading to voltage in mV
         uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
     
-        float resistance = ((voltage/1000.000)*(20000.000))/(3.300*(1.000-(voltage/3300.000)));
-        temp = 1/((1.000/298.000) + (1.000/3435.000) * log(resistance/10000)) - 273.000;
+        //float resistance = ((voltage/1000.000)*(20000.000))/(3.300*(1.000-(voltage/3300.000)));
+        //temp = 1/((1.000/298.000) + (1.000/3435.000) * log(resistance/10000)) - 273.000;
+
+        double resistance = (33000.0/((double)voltage/1000.0)) - 10000.0;
+        double temperatureKelvin = -(1 / ((log(10000.0/resistance)/3435.0) - (1/298.0)));
+        temp = (temperatureKelvin - 273.15);
+
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
@@ -134,7 +140,7 @@ static void ultrasonic() {
         adc_reading /= NO_OF_SAMPLES;
         //Convert adc_reading to voltage in mV
         uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
-        us_distance = (voltage/6.4) * 25.4;
+        us_distance = ((double)voltage/6.4) * 25.4 / 10; //multiply by 10 for cm
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
@@ -157,7 +163,7 @@ static void rangefinder() {
         adc_reading /= NO_OF_SAMPLES;
         //Convert adc_reading to voltage in mV
         uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
-        ir_distance = (-0.0619047619048*voltage) + 125.238095238;
+        ir_distance = (-0.0619047619048*(double)voltage) + 125.238095238;
         if (ir_distance < 20) {
             ir_distance = 20;
         } else if (ir_distance > 150) {
@@ -171,10 +177,22 @@ static void rangefinder() {
 
 //displays sensor values on the console
 static void display_console() {
-    printf("Voltage: %dmV\n", bat_voltage);
-    printf("Temperature: %dC\n", temp);
-    printf("Ultrasonic Distance: %dmm\n", us_distance);
-    printf("Rangefinder Distance: %dcm\n", ir_distance);
+
+    printf("Battery voltage (mV), temperature (C), ultrasonic distance (cm), infrared distance (cm)");
+
+    while (1) {
+
+        //printf("Voltage: %dmV\n", bat_voltage);
+        //printf("Temperature: %dC\n", temp);
+        //printf("Ultrasonic Distance: %dcm\n", us_distance);
+        //printf("Rangefinder Distance: %dcm\n", ir_distance);
+        printf("%d, %d, %d, %d\n", bat_voltage, temp, us_distance, ir_distance);
+
+        vTaskDelay(pdMS_TO_TICKS(1000));
+
+    }
+
+
 }
 
 static void check_efuse(void)
@@ -210,6 +228,8 @@ void app_main(void)
     //Check if Two Point or Vref are burned into eFuse
     check_efuse();
 
+    printf("checkpoint 1\n");
+
     //Configure ADC
     if (unit == ADC_UNIT_1) {
         adc1_config_width(ADC_WIDTH_BIT_12);
@@ -224,9 +244,17 @@ void app_main(void)
         adc2_config_channel_atten((adc2_channel_t)channel4, atten);
     }
     
+    printf("checkpoint 2\n");
+
     //Characterize ADC
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
+
+    printf("checkpoint 3\n");
+
     esp_adc_cal_value_t val_type = esp_adc_cal_characterize(unit, atten, ADC_WIDTH_BIT_12, DEFAULT_VREF, adc_chars);
+
+    printf("checkpoint 4\n");
+
     print_char_val_type(val_type);
 
     xTaskCreate(battery, "battery", 4096, NULL, 1, NULL);
