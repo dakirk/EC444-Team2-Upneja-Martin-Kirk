@@ -17,7 +17,7 @@ const fs = require('fs');
 const FILE_NAME = 'data-write.json';
 const NEW_DATA = [{ id: 2, name: 'Max' }];
 
-const port = new SerialPort('/dev/cu.SLAB_USBtoUART', { 
+const port = new SerialPort('/dev/cu.SLAB_USBtoUART', {
   autoOpen: false,
   baudRate: 115200
 });
@@ -37,7 +37,7 @@ const writeFileAsync = (newData) => {
       console.log(error);
     } else {
       console.log('Async Write: successful!');
-      console.log(stringifiedData);
+      //console.log(stringifiedData);
     }
   });
 };
@@ -57,7 +57,7 @@ app.get('/', function (req, res) {
       res.writeHead(200, {'Content-Type': 'text/html'});
       res.write(data);
       res.end();
-  }); 
+  });
 
   //res.send();
 });
@@ -70,7 +70,7 @@ app.get('/data', function (req, res) {
   })
     .fromFile(path)
     .then(function(jsonArrayObj){ //when parse finished, result will be emitted here.
-      //console.log(jsonArrayObj); 
+      //console.log(jsonArrayObj);
 
       res.send(jsonArrayObj);
     })
@@ -84,11 +84,11 @@ port.open(function (err) {
   if (err) {
     return console.log('Error opening port: ', err.message);
   }
- 
+
   // Because there's no callback to write, write errors will be emitted on the port:
   port.write('main screen turn on');
 });
- 
+
 // Read data that is available but keep the stream from entering "flowing mode"
 port.on('readable', function () {
   port.read();
@@ -126,7 +126,7 @@ csv()
 .fromFile(csvFilePath)
 .then((jsonObj)=>{
   //  console.log(jsonObj);
-  console.log(jsonObj);
+  //console.log(jsonObj);
   writeFileAsync(jsonObj);
 
   /*  var chart1 = new CanvasJS.chart("chartContainer1"), {
