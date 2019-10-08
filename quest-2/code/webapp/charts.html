@@ -1,0 +1,208 @@
+<!DOCTYPE HTML>
+<html>
+<head>  
+<script>
+window.onload = function () {
+
+	//how many data points to show, maximum
+	const chartLength = 20;
+	
+	//set up chart: everything but data
+	var chart = new CanvasJS.Chart("chartContainer", {
+		title: {
+			text: "Sensor Readouts"
+		},
+		axisX: {
+			interval: 1,
+			title: "Date",
+			suffix: "s",
+		},
+		axisY:[{
+			title: "Voltage",
+			lineColor: "#C24642",
+			tickColor: "#C24642",
+			labelFontColor: "#C24642",
+			titleFontColor: "#C24642",
+			suffix: "mV"
+		},
+		{
+			title: "Temperature",
+			lineColor: "#2245ba",
+			tickColor: "#2245ba",
+			labelFontColor: "#2245ba",
+			titleFontColor: "#2245ba",
+			suffix: "C"
+		}],
+		axisY2: {
+			title: "Distance",
+			lineColor: "#2cad1d",
+			tickColor: "#2cad1d",
+			labelFontColor: "#2cad1d",
+			titleFontColor: "#2cad1d",
+			suffix: "cm"
+		},
+		toolTip: {
+			shared: true
+		},
+		legend: {
+			cursor: "pointer",
+			verticalAlign: "top",
+			horizontalAlign: "center",
+			dockInsidePlotArea: true,
+			//itemclick: toggleDataSeries
+		},
+		data: [{
+			type:"line",
+			axisYIndex: 0,
+			name: "Battery voltage",
+			color: "#C24642",
+			showInLegend: true,
+			markerSize: 0,
+			yValueFormatString: "####mV",
+			dataPoints: []
+		},
+		{
+			type: "line",
+			axisYIndex: 1,
+			name: "Thermistor temperature",
+			color: "#2245ba",
+			showInLegend: true,
+			markerSize: 0,
+			yValueFormatString: "###C",
+			dataPoints: []
+		},
+		{
+			type: "line",
+			axisYType: "secondary",
+			name: "Ultrasonic distance",
+			color: "#90bf22",
+			showInLegend: true,
+			markerSize: 0,
+			yValueFormatString: "###cm",
+			dataPoints: []
+		},
+		{
+			type: "line",
+			axisYType: "secondary",
+			name: "Infrared distance",
+			color: "#22bf49",
+			showInLegend: true,
+			markerSize: 0,
+			yValueFormatString: "###cm",
+			dataPoints: []
+		}]
+	});
+
+	//get request xhr variables
+	var xhrOnLoad = new XMLHttpRequest();
+	var xhrAddPoint = new XMLHttpRequest();
+	
+	//using response from get request, set chart contents
+	xhrOnLoad.onreadystatechange = function() {
+	    if (this.readyState == 4 && this.status == 200) {
+
+	    	//all this to get formatting right
+
+	    	//get json text
+	    	//console.log(this.responseText);
+	    	console.log("meep!")
+	    	
+	    	//fix labels
+	    	var jsonAdjusted = this.responseText.replace(/timestamp/g, "x");
+	    	
+	    	var batteryData = JSON.parse(jsonAdjusted.replace(/battery/g, "y")).slice(-chartLength);
+	    	var temperatureData = JSON.parse(jsonAdjusted.replace(/temperature/g, "y")).slice(-chartLength);
+	    	var ultrasonicData = JSON.parse(jsonAdjusted.replace(/ultrasonic/g, "y")).slice(-chartLength);
+	    	var infraredData = JSON.parse(jsonAdjusted.replace(/infrared/g, "y")).slice(-chartLength);
+
+	    	console.log(batteryData);
+
+
+	    	chart.options.data[0].dataPoints = batteryData;
+	    	chart.options.data[1].dataPoints = temperatureData;
+	    	chart.options.data[2].dataPoints = ultrasonicData;
+	    	chart.options.data[3].dataPoints = infraredData;
+
+	    	console.log(batteryData);
+	    	console.log(chart.options.data[0].dataPoints);
+	        
+			chart.render();
+
+			var intervalID = window.setInterval(getGraphData, 1000);
+
+			
+			
+		}
+	};
+
+	//send get request for file data
+	xhrOnLoad.open("GET", '/data', true);
+	xhrOnLoad.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+	xhrOnLoad.send();
+
+	//repeat this function every second to update chart data
+	function getGraphData() {
+		//console.log("updated!")
+
+		//operation to do when GET is called
+		xhrAddPoint.onreadystatechange = function() {
+			if (this.readyState == 4 && this.status == 200) {
+				//console.log(this.responseText)
+
+				//get the json packet of chart data and format
+				var jsonAdjusted = this.responseText.replace(/timestamp/g, "x");
+
+				//split chart data into 4
+				var batteryData = JSON.parse(jsonAdjusted.replace(/battery/g, "y"));
+				var temperatureData = JSON.parse(jsonAdjusted.replace(/temperature/g, "y"));
+				var ultrasonicData = JSON.parse(jsonAdjusted.replace(/ultrasonic/g, "y"));
+				var infraredData = JSON.parse(jsonAdjusted.replace(/infrared/g, "y"));
+
+				//update chart
+				chart.options.data[0].dataPoints.push(batteryData[0]);
+	    		chart.options.data[1].dataPoints.push(temperatureData[0]);
+	    		chart.options.data[2].dataPoints.push(ultrasonicData[0]);
+	    		chart.options.data[3].dataPoints.push(infraredData[0]);
+
+	    		//if chart too big, trim chart
+	    		console.log(chart.options.data[0].dataPoints.length)
+	    		if (chart.options.data[0].dataPoints.length >= chartLength) {
+	    			chart.options.data[0].dataPoints.shift()
+	    			chart.options.data[1].dataPoints.shift()
+	    			chart.options.data[2].dataPoints.shift()
+	    			chart.options.data[3].dataPoints.shift()
+
+	    		}
+
+	    		chart.render();
+
+			}
+		}
+
+		//send get request for serial line output
+		xhrAddPoint.open("GET", '/serialline', true);
+		xhrAddPoint.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+		xhrAddPoint.send();
+
+	}
+
+
+	function toggleDataSeries(e){
+		if (typeof(e.dataSeries.visible) === "undefined" || e.dataSeries.visible) {
+			e.dataSeries.visible = false;
+		}
+		else{
+			e.dataSeries.visible = true;
+		}
+		chart.render();
+	}
+
+}
+</script>
+</head>
+<body>
+<div id="chartContainer" style="height: 300px; width: 100%;"></div>
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script src="https://canvasjs.com/assets/script/canvasjs.min.js"></script>
+</body>
+</html>
