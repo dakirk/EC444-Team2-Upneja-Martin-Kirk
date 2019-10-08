@@ -65,15 +65,9 @@ static const adc_channel_t channel3 = ADC_CHANNEL_6;     //GPIO34
 //rangefinder_monitor adc
 static const adc_channel_t channel4 = ADC_CHANNEL_3;     //GPIO39
 
-//variables to store most recent sensor readings
-//uint32_t bat_voltage;
-//uint32_t temp;
-//uint32_t us_distance;
-//uint32_t ir_distance;
-
 //stores battery voltage
 static uint32_t battery() {
-    //Continuously sample ADC1
+    //Sample ADC1
     uint32_t adc_reading = 0;
     //Multisampling
     for (int i = 0; i < NO_OF_SAMPLES; i++) {
@@ -93,7 +87,7 @@ static uint32_t battery() {
 
 //converts voltage across thermistor to Celsius and stores it
 static uint32_t thermistor() {
-    //Continuously sample ADC1
+    //Sample ADC1
     uint32_t adc_reading = 0;
     //Multisampling
     for (int i = 0; i < NO_OF_SAMPLES; i++) {
@@ -120,7 +114,7 @@ static uint32_t thermistor() {
 
 //converts voltage across ultrasonic to cm and stores it
 static uint32_t ultrasonic() {
-    //Continuously sample ADC1
+    //Sample ADC1
     uint32_t adc_reading = 0;
     //Multisampling
     for (int i = 0; i < NO_OF_SAMPLES; i++) {
@@ -142,7 +136,7 @@ static uint32_t ultrasonic() {
 
 //converts voltage across rangefinder to cm and stores it
 static uint32_t rangefinder() {
-    //Continuously sample ADC1
+    //Sample ADC1
     uint32_t adc_reading = 0;
     //Multisampling
     for (int i = 0; i < NO_OF_SAMPLES; i++) {
@@ -265,11 +259,7 @@ void app_main(void)
 
     print_char_val_type(val_type);
     
-    //run tasks for each sensor and for the display function
-    //xTaskCreate(battery, "battery", 4096, NULL, 1, NULL);
-    //xTaskCreate(thermistor, "thermistor", 4096, NULL, 2, NULL);
-    //xTaskCreate(ultrasonic, "ultrasonic", 4096, NULL, 3, NULL);
-    //xTaskCreate(rangefinder, "rangefinder", 4096, NULL, 4, NULL);
+    //set up task for printing sensor results
     xTaskCreate(display_console, "display_console", 4096, NULL, 5, NULL);
 
 }
