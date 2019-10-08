@@ -51,20 +51,21 @@ Test and debug.
 #define ACK_VAL                            0x00 // i2c ack value
 #define NACK_VAL                           0xFF // i2c nack value
 
+//initializing attenuation variables
 static esp_adc_cal_characteristics_t *adc_chars;
 static const adc_atten_t atten = ADC_ATTEN_DB_11;
 static const adc_unit_t unit = ADC_UNIT_1;
 
-//bat_monitor
+//bat_monitor adc
 static const adc_channel_t channel1 = ADC_CHANNEL_4;     //GPIO32 
-//thermistor_monitor
+//thermistor_monitor adc
 static const adc_channel_t channel2 = ADC_CHANNEL_0;     //GPIO36
-//ultrasonic_monitor
+//ultrasonic_monitor adc
 static const adc_channel_t channel3 = ADC_CHANNEL_6;     //GPIO34 
-//rangefinder_monitor
+//rangefinder_monitor adc
 static const adc_channel_t channel4 = ADC_CHANNEL_3;     //GPIO39
 
-
+//variables to store most recent sensor readings
 uint32_t bat_voltage;
 uint32_t temp;
 uint32_t us_distance;
@@ -92,7 +93,7 @@ static void battery() {
     }
 }
 
-//converts voltage across thermistor to celsius and stores it
+//converts voltage across thermistor to Celsius and stores it
 static void thermistor() {
     //Continuously sample ADC1
     while (1) {
@@ -110,19 +111,18 @@ static void thermistor() {
         adc_reading /= NO_OF_SAMPLES;
         //Convert adc_reading to voltage in mV
         uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
-    
-        //float resistance = ((voltage/1000.000)*(20000.000))/(3.300*(1.000-(voltage/3300.000)));
-        //temp = 1/((1.000/298.000) + (1.000/3435.000) * log(resistance/10000)) - 273.000;
-
+        
+        //calculate resistance across thermistor using voltage divider formula
         double resistance = (33000.0/((double)voltage/1000.0)) - 10000.0;
+        //convert resistance across thermistor to Kelvin (T0 = 298K, B = 3435, R0 = 10kohm)
         double temperatureKelvin = -(1 / ((log(10000.0/resistance)/3435.0) - (1/298.0)));
+        //convert Kelvin to Celsius
         temp = (temperatureKelvin - 273.15);
-
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 
-//converts voltage across ultrasonic to mm and stores it
+//converts voltage across ultrasonic to cm and stores it
 static void ultrasonic() {
     //Continuously sample ADC1
     while (1) {
@@ -140,7 +140,8 @@ static void ultrasonic() {
         adc_reading /= NO_OF_SAMPLES;
         //Convert adc_reading to voltage in mV
         uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
-        us_distance = ((double)voltage/6.4) * 25.4 / 10; //multiply by 10 for cm
+        //convert voltage to distance in centimeters
+        us_distance = ((double)voltage/6.4) * 25.4 / 10;
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
@@ -163,7 +164,9 @@ static void rangefinder() {
         adc_reading /= NO_OF_SAMPLES;
         //Convert adc_reading to voltage in mV
         uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+        //Convert voltage to distance in centimeters
         ir_distance = (-0.0619047619048*(double)voltage) + 125.238095238;
+        //Limit the rangefinder to its functional range (between 20 and 150 cm)
         if (ir_distance < 20) {
             ir_distance = 20;
         } else if (ir_distance > 150) {
@@ -177,15 +180,12 @@ static void rangefinder() {
 
 //displays sensor values on the console
 static void display_console() {
-
+    //print csv header to the serial port
     printf("Battery voltage (mV), temperature (C), ultrasonic distance (cm), infrared distance (cm)");
-
+    
+    //continuously print sensor readings to the serial port
     while (1) {
-
-        //printf("Voltage: %dmV\n", bat_voltage);
-        //printf("Temperature: %dC\n", temp);
-        //printf("Ultrasonic Distance: %dcm\n", us_distance);
-        //printf("Rangefinder Distance: %dcm\n", ir_distance);
+        
         printf("%d, %d, %d, %d\n", bat_voltage, temp, us_distance, ir_distance);
 
         vTaskDelay(pdMS_TO_TICKS(1000));
@@ -230,17 +230,25 @@ void app_main(void)
 
     printf("checkpoint 1\n");
 
-    //Configure ADC
+    //Configure ADC channels for each sensor
     if (unit == ADC_UNIT_1) {
         adc1_config_width(ADC_WIDTH_BIT_12);
+        //battery
         adc1_config_channel_atten(channel1, atten);
+        //thermistor
         adc1_config_channel_atten(channel2, atten);
+        //ultrasonic
         adc1_config_channel_atten(channel3, atten);
+        //rangefinder
         adc1_config_channel_atten(channel4, atten);
     } else {
+        //battery
         adc2_config_channel_atten((adc2_channel_t)channel1, atten);
+        //thermistor
         adc2_config_channel_atten((adc2_channel_t)channel2, atten);
+        //ultrasonic
         adc2_config_channel_atten((adc2_channel_t)channel3, atten);
+        //rangefinder
         adc2_config_channel_atten((adc2_channel_t)channel4, atten);
     }
     
@@ -256,7 +264,8 @@ void app_main(void)
     printf("checkpoint 4\n");
 
     print_char_val_type(val_type);
-
+    
+    //run tasks for each sensor and for the display function
     xTaskCreate(battery, "battery", 4096, NULL, 1, NULL);
     xTaskCreate(thermistor, "thermistor", 4096, NULL, 2, NULL);
     xTaskCreate(ultrasonic, "ultrasonic", 4096, NULL, 3, NULL);
