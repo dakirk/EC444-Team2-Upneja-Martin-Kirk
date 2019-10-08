@@ -168,7 +168,7 @@ static uint32_t rangefinder() {
 //displays sensor values on the console
 static void display_console() {
     //print csv header to the serial port
-    printf("Battery voltage (mV), temperature (C), ultrasonic distance (cm), infrared distance (cm)");
+    printf("Battery voltage (mV), temperature (C), ultrasonic distance (cm), infrared distance (cm)\n");
 
     uint32_t bat_voltage, temp, us_distance, ir_distance;
     
