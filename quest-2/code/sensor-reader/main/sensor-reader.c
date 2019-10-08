@@ -65,126 +65,120 @@ static const adc_channel_t channel3 = ADC_CHANNEL_6;     //GPIO34
 //rangefinder_monitor adc
 static const adc_channel_t channel4 = ADC_CHANNEL_3;     //GPIO39
 
-//variables to store most recent sensor readings
-uint32_t bat_voltage;
-uint32_t temp;
-uint32_t us_distance;
-uint32_t ir_distance;
-
 //stores battery voltage
-static void battery() {
-    //Continuously sample ADC1
-    while (1) {
-        uint32_t adc_reading = 0;
-        //Multisampling
-        for (int i = 0; i < NO_OF_SAMPLES; i++) {
-            if (unit == ADC_UNIT_1) {
-                adc_reading += adc1_get_raw((adc1_channel_t)channel1);
-            } else {
-                int raw;
-                adc2_get_raw((adc2_channel_t)channel1, ADC_WIDTH_BIT_12, &raw);
-                adc_reading += raw;
-            }
+static uint32_t battery() {
+    //Sample ADC1
+    uint32_t adc_reading = 0;
+    //Multisampling
+    for (int i = 0; i < NO_OF_SAMPLES; i++) {
+        if (unit == ADC_UNIT_1) {
+            adc_reading += adc1_get_raw((adc1_channel_t)channel1);
+        } else {
+            int raw;
+            adc2_get_raw((adc2_channel_t)channel1, ADC_WIDTH_BIT_12, &raw);
+            adc_reading += raw;
         }
-        adc_reading /= NO_OF_SAMPLES;
-        //Convert adc_reading to voltage in mV
-        bat_voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
-        vTaskDelay(pdMS_TO_TICKS(1000));
     }
+    adc_reading /= NO_OF_SAMPLES;
+    //Convert adc_reading to voltage in mV
+    return esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+
 }
 
 //converts voltage across thermistor to Celsius and stores it
-static void thermistor() {
-    //Continuously sample ADC1
-    while (1) {
-        uint32_t adc_reading = 0;
-        //Multisampling
-        for (int i = 0; i < NO_OF_SAMPLES; i++) {
-            if (unit == ADC_UNIT_1) {
-                adc_reading += adc1_get_raw((adc1_channel_t)channel2);
-            } else {
-                int raw;
-                adc2_get_raw((adc2_channel_t)channel2, ADC_WIDTH_BIT_12, &raw);
-                adc_reading += raw;
-            }
+static uint32_t thermistor() {
+    //Sample ADC1
+    uint32_t adc_reading = 0;
+    //Multisampling
+    for (int i = 0; i < NO_OF_SAMPLES; i++) {
+        if (unit == ADC_UNIT_1) {
+            adc_reading += adc1_get_raw((adc1_channel_t)channel2);
+        } else {
+            int raw;
+            adc2_get_raw((adc2_channel_t)channel2, ADC_WIDTH_BIT_12, &raw);
+            adc_reading += raw;
         }
-        adc_reading /= NO_OF_SAMPLES;
-        //Convert adc_reading to voltage in mV
-        uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
-        
-        //calculate resistance across thermistor using voltage divider formula
-        double resistance = (33000.0/((double)voltage/1000.0)) - 10000.0;
-        //convert resistance across thermistor to Kelvin (T0 = 298K, B = 3435, R0 = 10kohm)
-        double temperatureKelvin = -(1 / ((log(10000.0/resistance)/3435.0) - (1/298.0)));
-        //convert Kelvin to Celsius
-        temp = (temperatureKelvin - 273.15);
-        vTaskDelay(pdMS_TO_TICKS(1000));
     }
+    adc_reading /= NO_OF_SAMPLES;
+    //Convert adc_reading to voltage in mV
+    uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+    
+    //calculate resistance across thermistor using voltage divider formula
+    double resistance = (33000.0/((double)voltage/1000.0)) - 10000.0;
+    //convert resistance across thermistor to Kelvin (T0 = 298K, B = 3435, R0 = 10kohm)
+    double temperatureKelvin = -(1 / ((log(10000.0/resistance)/3435.0) - (1/298.0)));
+    //convert Kelvin to Celsius
+    return (temperatureKelvin - 273.15);
+    
 }
 
 //converts voltage across ultrasonic to cm and stores it
-static void ultrasonic() {
-    //Continuously sample ADC1
-    while (1) {
-        uint32_t adc_reading = 0;
-        //Multisampling
-        for (int i = 0; i < NO_OF_SAMPLES; i++) {
-            if (unit == ADC_UNIT_1) {
-                adc_reading += adc1_get_raw((adc1_channel_t)channel3);
-            } else {
-                int raw;
-                adc2_get_raw((adc2_channel_t)channel3, ADC_WIDTH_BIT_12, &raw);
-                adc_reading += raw;
-            }
+static uint32_t ultrasonic() {
+    //Sample ADC1
+    uint32_t adc_reading = 0;
+    //Multisampling
+    for (int i = 0; i < NO_OF_SAMPLES; i++) {
+        if (unit == ADC_UNIT_1) {
+            adc_reading += adc1_get_raw((adc1_channel_t)channel3);
+        } else {
+            int raw;
+            adc2_get_raw((adc2_channel_t)channel3, ADC_WIDTH_BIT_12, &raw);
+            adc_reading += raw;
         }
-        adc_reading /= NO_OF_SAMPLES;
-        //Convert adc_reading to voltage in mV
-        uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
-        //convert voltage to distance in centimeters
-        us_distance = ((double)voltage/6.4) * 25.4 / 10;
-        vTaskDelay(pdMS_TO_TICKS(1000));
     }
+    adc_reading /= NO_OF_SAMPLES;
+    //Convert adc_reading to voltage in mV
+    uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+    //convert voltage to distance in centimeters
+    return ((double)voltage/6.4) * 25.4 / 10;
+
 }
 
 //converts voltage across rangefinder to cm and stores it
-static void rangefinder() {
-    //Continuously sample ADC1
-    while (1) {
-        uint32_t adc_reading = 0;
-        //Multisampling
-        for (int i = 0; i < NO_OF_SAMPLES; i++) {
-            if (unit == ADC_UNIT_1) {
-                adc_reading += adc1_get_raw((adc1_channel_t)channel4);
-            } else {
-                int raw;
-                adc2_get_raw((adc2_channel_t)channel4, ADC_WIDTH_BIT_12, &raw);
-                adc_reading += raw;
-            }
-        }
-        adc_reading /= NO_OF_SAMPLES;
-        //Convert adc_reading to voltage in mV
-        uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
-        //Convert voltage to distance in centimeters
-        ir_distance = (-0.0619047619048*(double)voltage) + 125.238095238;
-        //Limit the rangefinder to its functional range (between 20 and 150 cm)
-        if (ir_distance < 20) {
-            ir_distance = 20;
-        } else if (ir_distance > 150) {
-            ir_distance = 150;
+static uint32_t rangefinder() {
+    //Sample ADC1
+    uint32_t adc_reading = 0;
+    //Multisampling
+    for (int i = 0; i < NO_OF_SAMPLES; i++) {
+        if (unit == ADC_UNIT_1) {
+            adc_reading += adc1_get_raw((adc1_channel_t)channel4);
         } else {
-            ir_distance = ir_distance;
+            int raw;
+            adc2_get_raw((adc2_channel_t)channel4, ADC_WIDTH_BIT_12, &raw);
+            adc_reading += raw;
         }
-        vTaskDelay(pdMS_TO_TICKS(1000));
     }
+    adc_reading /= NO_OF_SAMPLES;
+    //Convert adc_reading to voltage in mV
+    uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+    //Convert voltage to distance in centimeters
+    uint32_t ir_distance = (-0.0619047619048*(double)voltage) + 125.238095238;
+    //Limit the rangefinder to its functional range (between 20 and 150 cm)
+    if (ir_distance < 20) {
+        ir_distance = 20;
+    } else if (ir_distance > 150) {
+        ir_distance = 150;
+    } else {
+        ir_distance = ir_distance;
+    }
+
+    return ir_distance;
 }
 
 //displays sensor values on the console
 static void display_console() {
     //print csv header to the serial port
-    printf("Battery voltage (mV), temperature (C), ultrasonic distance (cm), infrared distance (cm)");
+    printf("Battery voltage (mV), temperature (C), ultrasonic distance (cm), infrared distance (cm)\n");
+
+    uint32_t bat_voltage, temp, us_distance, ir_distance;
     
     //continuously print sensor readings to the serial port
     while (1) {
+
+        bat_voltage = battery();
+        temp = thermistor();
+        us_distance = ultrasonic();
+        ir_distance = rangefinder();
         
         printf("%d, %d, %d, %d\n", bat_voltage, temp, us_distance, ir_distance);
 
@@ -265,11 +259,7 @@ void app_main(void)
 
     print_char_val_type(val_type);
     
-    //run tasks for each sensor and for the display function
-    xTaskCreate(battery, "battery", 4096, NULL, 1, NULL);
-    xTaskCreate(thermistor, "thermistor", 4096, NULL, 2, NULL);
-    xTaskCreate(ultrasonic, "ultrasonic", 4096, NULL, 3, NULL);
-    xTaskCreate(rangefinder, "rangefinder", 4096, NULL, 4, NULL);
+    //set up task for printing sensor results
     xTaskCreate(display_console, "display_console", 4096, NULL, 5, NULL);
 
 }

@@ -1,5 +1,7 @@
 //code adapted from https://medium.com/@machadogj/arduino-and-node-js-via-serial-port-bcf9691fab6a and the serialport documentation
 
+//IMPORTS AND SETUP//////////////////////////////////////////////////////////////////
+
 const SerialPort = require('serialport');
 const Readline = require('@serialport/parser-readline');
 const http = require('http');
@@ -9,57 +11,57 @@ const app = express()
 const bodyParser = require('body-parser');
 const csvtojson = require("csvtojson");
 const XMLHttpRequest = require('xmlhttprequest').XMLHttpRequest;
+
+//set up serial port
 const port = new SerialPort('/dev/cu.SLAB_USBtoUART', { 
-	autoOpen: false,
-	baudRate: 115200
+  autoOpen: false,
+  baudRate: 115200
 });
 
-const path = 'sensor_data.csv'
+//useful constants
+const path = 'sensor_data.csv' //temporary CSV file
+const csvheader = "timestamp, battery, temperature, ultrasonic, infrared\n" //CSV header
 
+//working variables
 var parser = port.pipe(new Readline({ delimiter: '\n' }));
 var serialline = "not yet set"
-var csvheader = "timestamp, battery, temperature, ultrasonic, infrared\n"
 var secondsSinceStartup = 0;
 
 // set up express
 app.use(express.static('public'))
 app.use(bodyParser.urlencoded({ extended: true }));
 
+//EXPRESS ROUTING (GET REQUEST RESPONSES)//////////////////////////////////////////////////////////////////
+
+
 // send html to front end
 app.get('/', function (req, res) {
 
-	console.log("loading!");
-
- 	fs.readFile('charts.html', function(err, data) {
+  fs.readFile('charts.html', function(err, data) {
       console.log("sending data");
-	    res.writeHead(200, {'Content-Type': 'text/html'});
-	    res.write(data);
-	    res.end();
+      res.writeHead(200, {'Content-Type': 'text/html'});
+      res.write(data);
+      res.end();
+  }); 
 
-      console.log("sent data");
-	});	
-
-  //res.send();
 });
 
 // send sensor data formatted as json to front end
 app.get('/data', function (req, res) {
 
-  console.log("data requested");
+  csvtojson({
+    checkType:true
+  })
+    .fromFile(path)
+    .then(function(jsonArrayObj){ //when parse finished, result will be emitted here.
+      //console.log(jsonArrayObj); 
 
-	csvtojson({
-		checkType:true
-	})
-  	.fromFile(path)
-  	.then(function(jsonArrayObj){ //when parse finished, result will be emitted here.
-     	//console.log(jsonArrayObj); 
-
-     	res.send(jsonArrayObj);
-   	})
+      res.send(jsonArrayObj);
+    })
 
 })
 
-// send sensor data formatted as json to front end
+// send latest sensor reading formatted as json to front end
 app.get('/serialline', function (req, res) {
 
   csvtojson({
@@ -72,10 +74,7 @@ app.get('/serialline', function (req, res) {
 
 })
 
-
-app.listen(3000, function () {
-	console.log("connected");
-})
+//SERIAL READING//////////////////////////////////////////////////////////////////
 
 //start reading from serial port
 port.open(function (err) {
@@ -102,27 +101,36 @@ parser.on('data', data =>{
 
   console.log(serialline);
 
-  //add header if file missing or empty
-  if (!fs.existsSync(path) || fs.statSync(path).size === 0) {
-    fs.appendFile(path, csvheader, function (err) {
-			if (err) throw err;
-			//console.log('Saved!');
-  	});
-	}
-
   //write data to file, one dataset per line
   fs.appendFile(path, (serialline + '\n'), function (err) {
-		if (err) throw err;
-		//console.log('Saved!');
+    if (err) throw err;
+    //console.log('Saved!');
   });
 
   secondsSinceStartup++;
 
 });
 
+//STARTUP AND SHUTDOWN//////////////////////////////////////////////////////////////////
+
+//handle startup
+app.listen(3000, function () {
+  console.log("connected");
+
+  //create a temporary CSV file
+  fs.appendFile(path, csvheader, function (err) {
+    if (err) throw err;
+  });
+})
+
+//handle shutdown
 process.on( 'SIGINT', function() {
+
   console.log( "\nGracefully shutting down from SIGINT (Ctrl-C)" );
+
+  //delete the temporary CSV file
   fs.unlinkSync(path)
+
   // some other closing procedures go here
   process.exit( );
 })
