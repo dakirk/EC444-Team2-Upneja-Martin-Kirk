@@ -1,7 +1,7 @@
 {
   "name": "node",
   "version": "1.0.0",
-  "description": "EC444 Node skill",
+  "description": "EC444 quest 2 node portion",
   "main": "read_serialport.js",
   "dependencies": {
     "body-parser": "^1.19.0",
@@ -17,12 +17,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/BU-EC444/Kirk-David.git"
+    "url": "git+https://github.com/BU-EC444/Team2-Upneja-Martin-Kirk.git"
   },
   "author": "David Kirk",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/BU-EC444/Kirk-David/issues"
+    "url": "https://github.com/BU-EC444/Team2-Upneja-Martin-Kirk/issues"
   },
-  "homepage": "https://github.com/BU-EC444/Kirk-David#readme"
+  "homepage": "https://github.com/BU-EC444/Team2-Upneja-Martin-Kirk#readme"
 }
