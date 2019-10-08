@@ -14,7 +14,7 @@ window.onload = function () {
 		},
 		axisX: {
 			interval: 1,
-			title: "Date",
+			title: "Sample time (seconds since startup)",
 			suffix: "s",
 		},
 		axisY:[{
@@ -49,7 +49,7 @@ window.onload = function () {
 			verticalAlign: "top",
 			horizontalAlign: "center",
 			dockInsidePlotArea: true,
-			//itemclick: toggleDataSeries
+			itemclick: toggleDataSeries
 		},
 		data: [{
 			type:"line",
@@ -100,12 +100,6 @@ window.onload = function () {
 	//using response from get request, set chart contents
 	xhrOnLoad.onreadystatechange = function() {
 	    if (this.readyState == 4 && this.status == 200) {
-
-	    	//all this to get formatting right
-
-	    	//get json text
-	    	//console.log(this.responseText);
-	    	console.log("meep!")
 	    	
 	    	//fix labels
 	    	var jsonAdjusted = this.responseText.replace(/timestamp/g, "x");
@@ -185,7 +179,6 @@ window.onload = function () {
 		xhrAddPoint.send();
 
 	}
-
 
 	function toggleDataSeries(e){
 		if (typeof(e.dataSeries.visible) === "undefined" || e.dataSeries.visible) {
