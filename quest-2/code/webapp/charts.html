@@ -6,6 +6,9 @@ window.onload = function () {
 
 	//how many data points to show, maximum
 	const chartLength = 20;
+
+	//one reading's worth of data, global to compare with future data readings
+	var jsonPacket = "";
 	
 	//set up chart: everything but data
 	var chart = new CanvasJS.Chart("chartContainer", {
@@ -99,6 +102,7 @@ window.onload = function () {
 	
 	//using response from get request, set chart contents
 	xhrOnLoad.onreadystatechange = function() {
+
 	    if (this.readyState == 4 && this.status == 200) {
 	    	
 	    	//fix labels
@@ -122,7 +126,7 @@ window.onload = function () {
 	        
 			chart.render();
 
-			var intervalID = window.setInterval(getGraphData, 1000);
+			var intervalID = window.setInterval(getGraphData, 100);
 
 			
 			
@@ -143,32 +147,41 @@ window.onload = function () {
 			if (this.readyState == 4 && this.status == 200) {
 				//console.log(this.responseText)
 
-				//get the json packet of chart data and format
-				var jsonAdjusted = this.responseText.replace(/timestamp/g, "x");
+				var newJsonPacket = this.responseText.replace(/timestamp/g, "x");
 
-				//split chart data into 4
-				var batteryData = JSON.parse(jsonAdjusted.replace(/battery/g, "y"));
-				var temperatureData = JSON.parse(jsonAdjusted.replace(/temperature/g, "y"));
-				var ultrasonicData = JSON.parse(jsonAdjusted.replace(/ultrasonic/g, "y"));
-				var infraredData = JSON.parse(jsonAdjusted.replace(/infrared/g, "y"));
+				//check if new packet is different from the old one, and only re-render if it is
+		    	if (newJsonPacket != jsonPacket) {
+		    		jsonPacket = newJsonPacket;
 
-				//update chart
-				chart.options.data[0].dataPoints.push(batteryData[0]);
-	    		chart.options.data[1].dataPoints.push(temperatureData[0]);
-	    		chart.options.data[2].dataPoints.push(ultrasonicData[0]);
-	    		chart.options.data[3].dataPoints.push(infraredData[0]);
+		    		//split chart data into 4
+					var batteryData = JSON.parse(jsonPacket.replace(/battery/g, "y"));
+					var temperatureData = JSON.parse(jsonPacket.replace(/temperature/g, "y"));
+					var ultrasonicData = JSON.parse(jsonPacket.replace(/ultrasonic/g, "y"));
+					var infraredData = JSON.parse(jsonPacket.replace(/infrared/g, "y"));
 
-	    		//if chart too big, trim chart
-	    		console.log(chart.options.data[0].dataPoints.length)
-	    		if (chart.options.data[0].dataPoints.length >= chartLength) {
-	    			chart.options.data[0].dataPoints.shift()
-	    			chart.options.data[1].dataPoints.shift()
-	    			chart.options.data[2].dataPoints.shift()
-	    			chart.options.data[3].dataPoints.shift()
+					//update chart
+					chart.options.data[0].dataPoints.push(batteryData[0]);
+		    		chart.options.data[1].dataPoints.push(temperatureData[0]);
+		    		chart.options.data[2].dataPoints.push(ultrasonicData[0]);
+		    		chart.options.data[3].dataPoints.push(infraredData[0]);
 
-	    		}
+		    		//if chart too big, trim chart
+		    		console.log(chart.options.data[0].dataPoints.length)
+		    		if (chart.options.data[0].dataPoints.length >= chartLength) {
+		    			chart.options.data[0].dataPoints.shift()
+		    			chart.options.data[1].dataPoints.shift()
+		    			chart.options.data[2].dataPoints.shift()
+		    			chart.options.data[3].dataPoints.shift()
 
-	    		chart.render();
+		    		}
+
+		    		chart.render();
+			    	}
+
+					//get the json packet of chart data and format
+					//var jsonAdjusted = this.responseText.replace(/timestamp/g, "x");
+
+				
 
 			}
 		}
