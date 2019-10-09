@@ -17,10 +17,27 @@ In this quest, we successfully demonstrated:
 ## Solution Design
 
 ### Wiring
-We used the same wiring scheme as the skills to connect our four sensors. We wired the battery reader with a 2/3 voltage divider from USB input (5V) and the thermistor in series with a 10k resistor. We connected the ultrasonic and infrared rangefinders directly with 5V and 3.3V power and ground respectively, feeding their analog outputs directly into the ESP32's ADC pins. 
+We wired the battery reader with a 2/3 voltage divider from USB input (5V) and the thermistor in series with a 10k resistor. We connected the ultrasonic and infrared rangefinders directly with 5V and 3.3V power and ground respectively, feeding their analog outputs directly into the ESP32's ADC pins.  We used the following GPIO pins for each sensor:
 
-### Microcontroller
+Battery reader -> GPIO32 (ADC_CHANNEL_4)
+Thermistor -> GPIO36 (ADC_CHANNEL_0)
+Ultrasonic sensor -> GPIO34 (ADC_CHANNEL_6)
+IR rangefinder -> GPIO39 (ADC_CHANNEL_3)
 
+### Microcontroller Code
+In the microcontroller code, we defined five functions: one per sensor to read and convert voltage readings and one to call the sensor functions and print the most recent readings to the serial port.  
+
+In the "battery" function, we simply returned the raw voltage in mV.  
+
+In the "thermistor" function, solved for the thermistor resistance using the voltage divider formula: Vout = Vin*[R2/(R2+R1)], where R2 is unknown, Vout is the current voltage reading, Vin is 3.3 volts, and R1 is 10kohm.  From here, we solved for the temperature using the formula: temperature = -(1 / ((ln(R0/R2)/B) - (1/T0))), where R0 = 10kohm, R2 is the current resistance across the thermistor, T0 is 298K, and B = 3435.  Then, we simply converted Kelvin to Celsius and returned the reading.  
+
+In the "ultrasonic" function, we converted the voltage reading to distance in cm using the formula: distance = (voltage/6.4) * 25.4 / 10.  We then returned the reading.  
+
+In the "rangefinder" function, we converted the voltage reading to distance in cm using the formula: distance = (-0.06 * voltage) + 125.24.  We capped the value between 20 and 150 centimeters because the rangefinder is not functional outside of this range.  We then returned the reading.
+
+In the "display_console" function, we ran the four sensor functions above and printed the values to the serial port in CSV format.  Then, we added a task delay of one second.
+
+In the main function, we initialized four ADC channels (one per sensor) and initialized a task for the "display_console" function.  Therefore, the the sensor readings are printed in a syncronous manner because they are all obtained within the "display_console" function.
 
 ### Node.js and Canvas.js
 We used a Node.js web app with Express.js for REST calls and Canvas.js on the front end for graphing. The program reads the serial output of the ESP32 using the serialport module, and then saves each line to a csv file. When the user loads the webpage for the first time, it reads from this file to generate the graph. Every second after that, it adds data from the most recent serial reading to the end of the graph, providing a ticker tape-like effect.
