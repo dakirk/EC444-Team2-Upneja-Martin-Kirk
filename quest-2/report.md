@@ -54,10 +54,6 @@ When the user loads the webpage for the first time, it reads from this file to g
 ![Example of running the chart](images/chart-example.png)
 *Example screenshot of the chart*
 
-[![](http://img.youtube.com/vi/4KVZYAVvwL4/0.jpg)](http://www.youtube.com/watch?v=4KVZYAVvwL4 "Demo video")
-
-
-
 ## Supporting Artifacts
 - Repo Link:https://github.com/BU-EC444/Team2-Upneja-Martin-Kirk/tree/master/quest-2
 - Video Link: https://www.youtube.com/watch?v=4KVZYAVvwL4&feature=youtu.be&fbclid=IwAR3loRq81-l9K01kI0XC7e0eM-dYWTdFfpwOzJDskPekX4ygM9tRI3Vg89U
