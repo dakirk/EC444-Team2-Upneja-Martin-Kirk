@@ -19,10 +19,10 @@ In this quest, we successfully demonstrated:
 ### Wiring
 We wired the battery reader with a 2/3 voltage divider from USB input (5V) and the thermistor in series with a 10k resistor. We connected the ultrasonic and infrared rangefinders directly with 5V and 3.3V power and ground respectively, feeding their analog outputs directly into the ESP32's ADC pins.  We used the following GPIO pins for each sensor:
 
-Battery reader -> GPIO32 (ADC_CHANNEL_4)
-Thermistor -> GPIO36 (ADC_CHANNEL_0)
-Ultrasonic sensor -> GPIO34 (ADC_CHANNEL_6)
-IR rangefinder -> GPIO39 (ADC_CHANNEL_3)
+- Battery reader -> GPIO32 (ADC_CHANNEL_4)
+- Thermistor -> GPIO36 (ADC_CHANNEL_0)
+- Ultrasonic sensor -> GPIO34 (ADC_CHANNEL_6)
+- IR rangefinder -> GPIO39 (ADC_CHANNEL_3)
 
 ### Microcontroller Code
 In the microcontroller code, we defined five functions: one per sensor to read and convert voltage readings and one to call the sensor functions and print the most recent readings to the serial port.  
@@ -48,8 +48,8 @@ We used a Node.js web app with Express.js for REST calls and Canvas.js on the fr
 
 
 ## Supporting Artifacts
-- [Link to repo]()
-- [Link to video demo]()
+Repo Link:https://github.com/BU-EC444/Team2-Upneja-Martin-Kirk/tree/master/quest-2
+Video Link: https://www.youtube.com/watch?v=4KVZYAVvwL4&feature=youtu.be&fbclid=IwAR3loRq81-l9K01kI0XC7e0eM-dYWTdFfpwOzJDskPekX4ygM9tRI3Vg89U
 
 
 ## References
