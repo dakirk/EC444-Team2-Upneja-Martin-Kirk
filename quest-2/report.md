@@ -42,17 +42,20 @@ In the main function, we initialized four ADC channels (one per sensor) and init
 ### Node.js and Canvas.js
 We used a Node.js web app with Express.js for REST calls and Canvas.js on the front end for graphing. The program reads the serial output of the ESP32 using the serialport module, and then saves each line to a csv file. When the user loads the webpage for the first time, it reads from this file to generate the graph. Every second after that, it adds data from the most recent serial reading to the end of the graph, providing a ticker tape-like effect.
 
-## Sketches and Photos
-<center><img src="./images/example.png" width="70%" /></center>  
-<center> </center>
+## Investigative Question
+*How fast can you sample each sensor and at what resolution based on the data sheet specs for each item?*
 
+## Sketches and Photos
 
 ## Supporting Artifacts
-Repo Link:https://github.com/BU-EC444/Team2-Upneja-Martin-Kirk/tree/master/quest-2
-Video Link: https://www.youtube.com/watch?v=4KVZYAVvwL4&feature=youtu.be&fbclid=IwAR3loRq81-l9K01kI0XC7e0eM-dYWTdFfpwOzJDskPekX4ygM9tRI3Vg89U
+- Repo Link:https://github.com/BU-EC444/Team2-Upneja-Martin-Kirk/tree/master/quest-2
+- Video Link: https://www.youtube.com/watch?v=4KVZYAVvwL4&feature=youtu.be&fbclid=IwAR3loRq81-l9K01kI0XC7e0eM-dYWTdFfpwOzJDskPekX4ygM9tRI3Vg89U
 
 
 ## References
+- esp-idf/examples/peripherals/adc
+- https://canvasjs.com/javascript-charts/
+- https://expressjs.com/
 
 -----
 
