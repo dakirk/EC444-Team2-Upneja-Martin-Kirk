@@ -46,6 +46,8 @@ We used a Node.js web app with Express.js for REST calls and Canvas.js on the fr
 *How fast can you sample each sensor and at what resolution based on the data sheet specs for each item?*
 
 ## Sketches and Photos
+![images/wiring.jpg](Sensor wiring)
+![images/chart-example.jpg](Example of the chart running)
 
 ## Supporting Artifacts
 - Repo Link:https://github.com/BU-EC444/Team2-Upneja-Martin-Kirk/tree/master/quest-2
