@@ -70,6 +70,9 @@ When the user loads the webpage for the first time, it reads from this file to g
 - https://www.npmjs.com/package/csvtojson
 - https://www.npmjs.com/package/serialport
 - http://web.cecs.pdx.edu/~eas199/B/howto/thermistorArduino/thermistorArduino.pdf
+- https://www.eaa.net.au/PDF/Hitech/MF52type.pdf
+- https://www.sparkfun.com/datasheets/Sensors/Infrared/gp2y0a02yk_e.pdf
+- https://www.maxbotix.com/documents/HRLV-MaxSonar-EZ_Datasheet.pdf
 
 -----
 
