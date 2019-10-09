@@ -49,7 +49,7 @@ When the user loads the webpage for the first time, it reads from this file to g
 
 - The ultrasonic sensor can be sampled at a rate of once every 100ms at a resolution of 5mm when using the analog input.
 - The IR rangefinder can be sampled at a rate of once every 38.3ms±9.6ms at a resolution of 1cm.
-- The thermistor can be sampled at a rate of ___ at a resolution of ___.
+- The thermistor has a time constant of <= 7 seconds in static air, which is the time it takes for the thermistor reading to change 63.2% of a unit step change in temperature.  Any sample rate around this magnitude would be sufficient.  The thermistor has resolution of ___.
 
 ## Sketches and Photos
 ![Sensor wiring](images/wiring.jpg)
