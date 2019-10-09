@@ -45,6 +45,10 @@ We used a Node.js web app with Express.js for REST calls and Canvas.js on the fr
 ## Investigative Question
 *How fast can you sample each sensor and at what resolution based on the data sheet specs for each item?*
 
+The ultrasonic sensor can be sampled at a rate of ___ at a resolution of 5mm when using the analog input.
+The IR rangefinder can be sampled at a rate of once every 38.3ms±9.6ms at a resolution of 1cm.
+The thermistor can be sampled at a rate of ___ at a resolution of ___.
+
 ## Sketches and Photos
 ![Sensor wiring](images/wiring.jpg)
 
