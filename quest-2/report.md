@@ -40,19 +40,22 @@ In the "display_console" function, we ran the four sensor functions above and pr
 In the main function, we initialized four ADC channels (one per sensor) and initialized a task for the "display_console" function.  Therefore, the the sensor readings are printed in a syncronous manner because they are all obtained within the "display_console" function.
 
 ### Node.js and Canvas.js
-We used a Node.js web app with Express.js for REST calls and Canvas.js on the front end for graphing. The program reads the serial output of the ESP32 using the serialport module, and then saves each line to a csv file. When the user loads the webpage for the first time, it reads from this file to generate the graph. Every second after that, it adds data from the most recent serial reading to the end of the graph, providing a ticker tape-like effect.
+We used a Node.js web app with Express.js for REST calls and Canvas.js on the front end for graphing. The program reads the serial output of the ESP32 using the serialport module, and then saves each line to a csv file created at startup. It also sets up three REST endpoints, "/" for sending webpage HTML, "/data" for converting and sending all saved sensor data in JSON format, and "/serialline" for converting and sending the most recent serial reading in JSON format. 
+
+When the user loads the webpage for the first time, it reads from this file to generate the chart through the /data REST endpoint. After that, it polls every 100ms for new data from /serialline, and adds that data to the chart if it is new. By deleting the oldest data point from the chart every time we add a data point, we created a ticker tape-like scrolling effect, allowing the chart to update in real time.
 
 ## Investigative Question
 *How fast can you sample each sensor and at what resolution based on the data sheet specs for each item?*
 
-- The ultrasonic sensor can be sampled at a rate of ___ at a resolution of 5mm when using the analog input.
-- The IR rangefinder can be sampled at a rate of once every 38.3ms±9.6ms at a resolution of 1cm.
-- The thermistor can be sampled at a rate of ___ at a resolution of ___.
-
 ## Sketches and Photos
 ![Sensor wiring](images/wiring.jpg)
+*Our wiring scheme*
 
 ![Example of running the chart](images/chart-example.png)
+*Example screenshot of the chart*
+
+[![](http://img.youtube.com/vi/4KVZYAVvwL4/0.jpg)](http://www.youtube.com/watch?v=4KVZYAVvwL4 "Demo video")
+
 
 
 ## Supporting Artifacts
@@ -64,6 +67,8 @@ We used a Node.js web app with Express.js for REST calls and Canvas.js on the fr
 - esp-idf/examples/peripherals/adc
 - https://canvasjs.com/javascript-charts/
 - https://expressjs.com/
+- https://www.npmjs.com/package/csvtojson
+- https://www.npmjs.com/package/serialport
 
 -----
 
