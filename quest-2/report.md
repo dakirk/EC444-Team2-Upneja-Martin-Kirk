@@ -47,6 +47,10 @@ When the user loads the webpage for the first time, it reads from this file to g
 ## Investigative Question
 *How fast can you sample each sensor and at what resolution based on the data sheet specs for each item?*
 
+- The ultrasonic sensor can be sampled at a rate of once every 100ms at a resolution of 5mm when using the analog input.
+- The IR rangefinder can be sampled at a rate of once every 38.3ms±9.6ms at a resolution of 1cm.
+- The thermistor can be sampled at a rate of ___ at a resolution of ___.
+
 ## Sketches and Photos
 ![Sensor wiring](images/wiring.jpg)
 *Our wiring scheme*
