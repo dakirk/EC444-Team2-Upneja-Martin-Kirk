@@ -16,4 +16,4 @@ example socket line inbound (node -> esp, sent when user requests change):
 
 or 
 
-* '1 1 0 1 1' where each digit is a flag -- would be easier to parse
+* '11011' where each digit is a flag -- would be easier to parse
