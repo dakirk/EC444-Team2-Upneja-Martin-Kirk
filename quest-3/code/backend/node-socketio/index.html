@@ -1,0 +1,30 @@
+<!-- client side -->
+
+<!doctype html>
+<html>
+
+<!-- HTML HEAD -->
+<head>
+	<title>TEST</title>
+	<!-- Source for Socket.io - this one is local -->
+	<script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body>
+	<!-- HTML layout -->
+  <h1>Hello world -- test 1, 2, 3</h1> <br>
+	<div> Received: <p id="message_disp"></p> </div>
+
+	<!-- Script to handle socket -->
+	<script>
+		var index = 0;
+		var socket = io();
+		socket.on('message', function(msg){
+			console.log(msg);
+			document.getElementById("message_disp").innerHTML = msg;
+		});
+	</script>
+
+</body>
+
+</html>
