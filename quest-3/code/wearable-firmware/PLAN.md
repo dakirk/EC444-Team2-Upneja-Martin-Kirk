@@ -27,30 +27,32 @@
 
 # STRUCTURE:
 
-* gpio_interrupt()
-*   get vibration_enabled
-*   set steps
-* app_main:
-*   sock_init()
-*     get sock
-*   gpio_init()
-*   wifi_init()
-*   timer_init()
-*   task - socket_receive()
-*     get sock
-*     get dest_addr
-*     set vibration_enabled
-*     set thermistor_enabled
-*     set battery_enabled
-*     set water_alarm_enabled
-*     task - ping_led()
-*     on failure - socket_reconnect()
-*   task - socket_send()
-*     get sock
-*     get battery_enabled
-*     get thermistor_enabled
-*     read_battery()
-*     read_thermistor()
-*     on failure - socket_reconnect()
-*   task - water_timer()
-*     get water_alarm_enabled
+```
+gpio_interrupt()
+  get vibration_enabled
+  set steps
+app_main:
+  sock_init()
+    get sock
+  gpio_init()
+  wifi_init()
+  timer_init()
+  task - socket_receive()
+    get sock
+    get dest_addr
+    set vibration_enabled
+    set thermistor_enabled
+    set battery_enabled
+    set water_alarm_enabled
+    task - ping_led()
+    on failure - socket_reconnect()
+  task - socket_send()
+    get sock
+    get battery_enabled
+    get thermistor_enabled
+    read_battery()
+    read_thermistor()
+    on failure - socket_reconnect()
+  task - water_timer()
+    get water_alarm_enabled
+```
