@@ -106,7 +106,7 @@
  */
 
 
-//debouncer setup
+//debouncer variables
 #define GPIO_OUTPUT_IO_0    18
 #define GPIO_OUTPUT_IO_1    19
 #define GPIO_OUTPUT_PIN_SEL  ((1ULL<<GPIO_OUTPUT_IO_0) | (1ULL<<GPIO_OUTPUT_IO_1))
@@ -129,12 +129,13 @@ int thermistor_enabled;                                 //thermistor enable flag
 int battery_enabled;                                    //battery voltage enable flag
 int water_alarm_enabled;                                //water alert enable flag
 
-//timer setup
+//timer variables
 int water_interval;                                     //time interval for the water alarm
 
-//socket setup
+//socket variables
 #define HOST_IP_ADDR "192.168.1.101"                    //target server ip
 #define PORT 8080                                       //target server port
+
 char rx_buffer[128];
 char addr_str[128];
 int addr_family;
@@ -142,7 +143,7 @@ int ip_protocol;
 int sock;                                               //socket id?
 struct sockaddr_in dest_addr;                           //socket destination info
 
-//wifi setup
+//wifi variables
 #define EXAMPLE_ESP_WIFI_SSID "Group_2"
 #define EXAMPLE_ESP_WIFI_PASS "smartkey"
 #define EXAMPLE_ESP_MAXIMUM_RETRY 10//CONFIG_ESP_MAXIMUM_RETRY
@@ -152,32 +153,22 @@ const int WIFI_CONNECTED_BIT = BIT0;                    //The event group allows
 static const char *TAG = "wifi station";
 static int s_retry_num = 0;
 
-
-static void event_handler(void* arg, esp_event_base_t event_base, 
-                                int32_t event_id, void* event_data)
-{
-    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-        esp_wifi_connect();
-    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        if (s_retry_num < EXAMPLE_ESP_MAXIMUM_RETRY) {
-            esp_wifi_connect();
-            xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-            s_retry_num++;
-            ESP_LOGI(TAG, "retry to connect to the AP");
-        }
-        ESP_LOGI(TAG,"connect to the AP fail");
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-        ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        ESP_LOGI(TAG, "got ip:%s",
-                 ip4addr_ntoa(&event->ip_info.ip));
-        s_retry_num = 0;
-        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-    }
-}
+////WIFI SETUP/////////////////////////////////////////////////////////////////////
 
 //connect to wifi
 void wifi_init_sta(void)
 {
+
+    //Initialize NVS
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+      ESP_ERROR_CHECK(nvs_flash_erase());
+      ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+    
+    ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
+
     s_wifi_event_group = xEventGroupCreate();
 
     tcpip_adapter_init();
@@ -203,7 +194,33 @@ void wifi_init_sta(void)
     ESP_LOGI(TAG, "wifi_init_sta finished.");
     ESP_LOGI(TAG, "connect to ap SSID:%s password:%s",
              EXAMPLE_ESP_WIFI_SSID, EXAMPLE_ESP_WIFI_PASS);
+
 }
+
+//wifi event handler
+static void event_handler(void* arg, esp_event_base_t event_base, 
+                                int32_t event_id, void* event_data)
+{
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
+        esp_wifi_connect();
+    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        if (s_retry_num < EXAMPLE_ESP_MAXIMUM_RETRY) {
+            esp_wifi_connect();
+            xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+            s_retry_num++;
+            ESP_LOGI(TAG, "retry to connect to the AP");
+        }
+        ESP_LOGI(TAG,"connect to the AP fail");
+    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+        ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
+        ESP_LOGI(TAG, "got ip:%s",
+                 ip4addr_ntoa(&event->ip_info.ip));
+        s_retry_num = 0;
+        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+    }
+}
+
+////VIBRATION SENSOR SETUP/////////////////////////////////////////////////////////////////////
 
 //set up GPIO interrupts
 static void IRAM_ATTR gpio_isr_handler(void* arg)
@@ -251,11 +268,7 @@ static void gpio_task_example(void* arg)
             //increment bounce count if no other cases met
             else {
                 bounceCount++;
-            }
-
-            
-
-
+            }        
         }
     }
 }
@@ -314,6 +327,8 @@ void app_main(void)
 {
 
     gpio_setup();
+
+    wifi_init_sta();
 
     int cnt = 0;
     while(1) {
