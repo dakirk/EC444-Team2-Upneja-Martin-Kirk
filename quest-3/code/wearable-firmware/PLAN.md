@@ -1,7 +1,6 @@
+# PLAN: create the following
 
-#PLAN: create the following
-
-##global variables:
+## global variables:
 * int steps                     number of steps taken by user (counter)
 * int vibration_enabled         vibration sensor interrupt enable flag
 * int thermistor_enabled        thermistor enable flag
@@ -11,7 +10,7 @@
 * int sock                      socket id?
 * struct sockaddr_in dest_addr  socket destination info
 
-##single-run functions:
+## single-run functions:
 * void socket_init()            sets up a UDP socket
 * void wifi_init()              sets up wifi (may just use example_connect())
 * void timer_init()             sets up timer
@@ -21,12 +20,12 @@
 * void socket_reconnect()       attempts to reconnect socket if anything failed
 * void ping_led()               turns on LED and then turns it off (async if possible)
 
-##RTOS task functions:
+## RTOS task functions:
 * void socket_receive()         scans for new inbound data and sets relevant settings (low delay loop)
 * void socket_send(char[])       sends sensor data outbound
 * void water_timer()            timer for the "drink water" alarm
 
-#STRUCTURE:
+# STRUCTURE:
 
 * gpio_interrupt()
 *   get vibration_enabled
