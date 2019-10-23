@@ -1,3 +1,12 @@
+//TODO:
+// 1. thermistor function
+// 2. set up water alarm (timer)
+// 3. make ping_led light an led and be asynchronous
+// 4. format socket output to be in JSON
+// 5. connect with Kyle's Node.js server
+// 6. reorganize for better readablity
+
+
 //BASED ON: GPIO interrupt example code, I2C example code, UDP client example code
 
 #include <stdio.h>
@@ -10,14 +19,18 @@
 #include "freertos/queue.h"
 #include "freertos/event_groups.h"
 
-//gpio
+//gpio & adc
 #include "driver/gpio.h"
+#include "driver/adc.h"
+#include "esp_adc_cal.h"
+#include "esp_vfs_dev.h"
 
 //networking
 #include "esp_system.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_log.h"
+
 #include "nvs_flash.h"
 #include "tcpip_adapter.h"
 #include "lwip/err.h"
@@ -59,6 +72,24 @@ int interrupt_enabled = 1;                              //flag to disable interr
 int steps = 0;                                          //number of steps taken by user (counter)
 static xQueueHandle gpio_evt_queue = NULL;              //event queue
 
+//adc setup
+#define DEFAULT_VREF    1100        //Use adc2_vref_to_gpio() to obtain a better estimate
+#define NO_OF_SAMPLES   64          //Multisampling
+
+//initializing attenuation variables
+static esp_adc_cal_characteristics_t *adc_chars;
+static const adc_atten_t atten = ADC_ATTEN_DB_11;
+static const adc_unit_t unit = ADC_UNIT_1;
+
+//bat_monitor adc
+static const adc_channel_t channel1 = ADC_CHANNEL_4;     //GPIO32 
+//thermistor_monitor adc
+static const adc_channel_t channel2 = ADC_CHANNEL_0;     //GPIO36
+//ultrasonic_monitor adc
+static const adc_channel_t channel3 = ADC_CHANNEL_6;     //GPIO34 
+//rangefinder_monitor adc
+static const adc_channel_t channel4 = ADC_CHANNEL_3;     //GPIO39
+
 //flags
 int vibration_enabled = 1;                              //vibration sensor interrupt enable flag
 int thermistor_enabled = 1;                             //thermistor enable flag
@@ -90,6 +121,7 @@ static const char *TAG = "wifi station";
 static int s_retry_num = 0;
 
 static void ping_led();
+static int battery();
 
 
 ////WIFI SETUP/////////////////////////////////////////////////////////////////////
@@ -238,6 +270,11 @@ static void udp_client_send(char* message) {
     //assuming ip4v only
     printf("attempting to send\n");
 
+    int batteryVoltage = battery();
+
+
+    printf("battery: %d\n", batteryVoltage);
+
     int err = sendto(sock, message, strlen(message), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
     if (err < 0) {
         ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
@@ -259,7 +296,7 @@ static void gpio_task_example(void* arg)
 {
     uint32_t io_num;
     for(;;) {
-        if(xQueueReceive(gpio_evt_queue, &io_num, portMAX_DELAY) && interrupt_enabled) {
+        if(xQueueReceive(gpio_evt_queue, &io_num, portMAX_DELAY) && interrupt_enabled && vibration_enabled) {
 
             int currTime = xTaskGetTickCount();
 
@@ -349,6 +386,81 @@ static void gpio_setup() {
     bounceCount = 0;
 }
 
+static int battery() {
+
+    if (battery_enabled) {
+        //Sample ADC1
+        uint32_t adc_reading = 0;
+        //Multisampling
+        for (int i = 0; i < NO_OF_SAMPLES; i++) {
+            if (unit == ADC_UNIT_1) {
+                adc_reading += adc1_get_raw((adc1_channel_t)channel1);
+            } else {
+                int raw;
+                adc2_get_raw((adc2_channel_t)channel1, ADC_WIDTH_BIT_12, &raw);
+                adc_reading += raw;
+            }
+        }
+        adc_reading /= NO_OF_SAMPLES;
+        //Convert adc_reading to voltage in mV
+
+        return esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+    } else {
+        return -1;
+    }
+
+}
+
+static void print_char_val_type(esp_adc_cal_value_t val_type)
+{
+    if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP) {
+        printf("Characterized using Two Point Value\n");
+    } else if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF) {
+        printf("Characterized using eFuse Vref\n");
+    } else {
+        printf("Characterized using Default Vref\n");
+    }
+}
+
+static void adc_init() {
+
+    //Configure ADC channels for each sensor
+    if (unit == ADC_UNIT_1) {
+        adc1_config_width(ADC_WIDTH_BIT_12);
+        //battery
+        adc1_config_channel_atten(channel1, atten);
+        //thermistor
+        adc1_config_channel_atten(channel2, atten);
+        //ultrasonic
+        adc1_config_channel_atten(channel3, atten);
+        //rangefinder
+        adc1_config_channel_atten(channel4, atten);
+    } else {
+        //battery
+        adc2_config_channel_atten((adc2_channel_t)channel1, atten);
+        //thermistor
+        adc2_config_channel_atten((adc2_channel_t)channel2, atten);
+        //ultrasonic
+        adc2_config_channel_atten((adc2_channel_t)channel3, atten);
+        //rangefinder
+        adc2_config_channel_atten((adc2_channel_t)channel4, atten);
+    }
+    
+    printf("checkpoint 2\n");
+
+    //Characterize ADC
+    adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
+
+    printf("checkpoint 3\n");
+
+    esp_adc_cal_value_t val_type = esp_adc_cal_characterize(unit, atten, ADC_WIDTH_BIT_12, DEFAULT_VREF, adc_chars);
+
+    printf("checkpoint 4\n");
+
+    print_char_val_type(val_type);
+
+}
+
 static void ping_led() {
     printf("led pinged!\n");
 }
@@ -375,6 +487,7 @@ void app_main(void)
     gpio_setup();
     wifi_init_sta();
     udp_init();
+    adc_init();
 
     xTaskCreate(udp_client_receive, "udp_client_receive", 4096, NULL, 5, NULL);
     xTaskCreate(test_task, "test_task", 4096, NULL, 4, NULL);
