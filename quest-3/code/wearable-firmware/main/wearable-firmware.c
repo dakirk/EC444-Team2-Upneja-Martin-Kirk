@@ -56,17 +56,17 @@
 int bounceCount;                                        //number of bounces
 int startTime;                                          //for recording elapsed time to determine if debouncer has timed out
 int interrupt_enabled = 1;                              //flag to disable interrupts during debouncing
-int steps;                                              //number of steps taken by user (counter)
+int steps = 0;                                          //number of steps taken by user (counter)
 static xQueueHandle gpio_evt_queue = NULL;              //event queue
 
 //flags
-int vibration_enabled;                                  //vibration sensor interrupt enable flag
-int thermistor_enabled;                                 //thermistor enable flag
-int battery_enabled;                                    //battery voltage enable flag
-int water_alarm_enabled;                                //water alert enable flag
+int vibration_enabled = 1;                              //vibration sensor interrupt enable flag
+int thermistor_enabled = 1;                             //thermistor enable flag
+int battery_enabled = 1;                                //battery voltage enable flag
+int water_alarm_enabled = 1;                            //water alert enable flag
 
 //timer variables
-int water_interval;                                     //time interval for the water alarm
+int water_interval = 3600;                              //time interval for the water alarm
 
 //socket variables
 #define HOST_IP_ADDR "192.168.1.101"                    //target server ip
@@ -88,6 +88,8 @@ static EventGroupHandle_t s_wifi_event_group;           //FreeRTOS event group t
 const int WIFI_CONNECTED_BIT = BIT0;                    //The event group allows multiple bits for each event, but we only care about one event - are we connected to the AP with an IP?
 static const char *TAG = "wifi station";
 static int s_retry_num = 0;
+
+static void ping_led();
 
 
 ////WIFI SETUP/////////////////////////////////////////////////////////////////////
@@ -162,14 +164,18 @@ void wifi_init_sta(void)
 
 static void udp_init() {
 
+    //tcpip_adapter_init();
+
     addr_family = AF_INET;
     ip_protocol = IPPROTO_IP;
 
+    //socket setup struct
     dest_addr.sin_addr.s_addr = inet_addr(HOST_IP_ADDR);
     dest_addr.sin_family = AF_INET;
     dest_addr.sin_port = htons(PORT);
     inet_ntoa_r(dest_addr.sin_addr, addr_str, sizeof(addr_str) - 1);
 
+    //establish socket connection
     sock = socket(addr_family, SOCK_DGRAM, ip_protocol);
     if (sock < 0) {
         ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
@@ -197,6 +203,19 @@ static void udp_client_receive() {
                 rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
                 ESP_LOGI(TAG, "Received %d bytes from %s:", len, addr_str);
                 ESP_LOGI(TAG, "%s", rx_buffer);
+
+                //expects string of format "10101 1234"
+
+                vibration_enabled = rx_buffer[0] - 48;
+                thermistor_enabled = rx_buffer[1] - 48;
+                battery_enabled = rx_buffer[2] - 48;
+                water_alarm_enabled = rx_buffer[3] - 48;
+
+                if (rx_buffer[4] - 48) { //if 5th bit is 1, run the "ping_led() function"
+                    ping_led();
+                }
+
+                printf("number at the end: %s", (rx_buffer+5));
             }
 
         }
@@ -208,7 +227,6 @@ static void udp_client_receive() {
             udp_init();
         }
 
-
     }
 
     vTaskDelete(NULL);
@@ -218,51 +236,13 @@ static void udp_client_receive() {
 static void udp_client_send(char* message) {
 
     //assuming ip4v only
-
-    /*
-    sock = socket(addr_family, SOCK_DGRAM, ip_protocol);
-    if (sock < 0) {
-        ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
-        break;
-    }
-    ESP_LOGI(TAG, "Socket created, sending to %s:%d", HOST_IP_ADDR, PORT);
-    */
+    printf("attempting to send\n");
 
     int err = sendto(sock, message, strlen(message), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
     if (err < 0) {
         ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
         //break;
     }
-
-        //}
-
-        //printf("got here\n");
-        /*
-        struct sockaddr_in source_addr; // Large enough for both IPv4 or IPv6
-        socklen_t socklen = sizeof(source_addr);
-        int len = recvfrom(sock, rx_buffer, sizeof(rx_buffer) - 1, 0, (struct sockaddr *)&source_addr, &socklen);
-
-        // Error occurred during receiving
-        if (len < 0) {
-            ESP_LOGE(TAG, "recvfrom failed: errno %d", errno);
-            break;
-        }
-        // Data received
-        else {
-            rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
-            ESP_LOGI(TAG, "Received %d bytes from %s:", len, addr_str);
-            ESP_LOGI(TAG, "%s", rx_buffer);
-        }
-        */
-
-        //printf("got to the end\n");
-
-    /*
-    if (sock != -1) {
-        ESP_LOGE(TAG, "Shutting down socket and restarting...");
-        shutdown(sock, 0);
-        close(sock);
-    }*/
 }
 
 ////VIBRATION SENSOR SETUP/////////////////////////////////////////////////////////////////////
@@ -295,6 +275,7 @@ static void gpio_task_example(void* arg)
                 interrupt_enabled = 0; //disable interrupts during the following commands
 
                 bounceCount = 0;
+                steps++;
                 gpio_set_level(GPIO_OUTPUT_IO_0, 1);
                 printf("GPIO[%d] intr, val: %d\n", io_num, gpio_get_level(io_num));
                 vTaskDelay(500/portTICK_RATE_MS);
@@ -368,6 +349,26 @@ static void gpio_setup() {
     bounceCount = 0;
 }
 
+static void ping_led() {
+    printf("led pinged!\n");
+}
+
+static void test_task() {
+    char stepBuf[10];
+
+    int cnt = 0;
+    while(1) {
+        printf("cnt: %d\n", cnt++);
+        vTaskDelay(1000 / portTICK_RATE_MS);
+
+        itoa(steps, stepBuf, 10);
+
+        udp_client_send(stepBuf);
+        //gpio_set_level(GPIO_OUTPUT_IO_0, cnt % 2);
+        //gpio_set_level(GPIO_OUTPUT_IO_1, cnt % 2);
+    }
+}
+
 void app_main(void)
 {
 
@@ -375,12 +376,8 @@ void app_main(void)
     wifi_init_sta();
     udp_init();
 
-    int cnt = 0;
-    while(1) {
-        printf("cnt: %d\n", cnt++);
-        vTaskDelay(1000 / portTICK_RATE_MS);
-        //gpio_set_level(GPIO_OUTPUT_IO_0, cnt % 2);
-        //gpio_set_level(GPIO_OUTPUT_IO_1, cnt % 2);
-    }
+    xTaskCreate(udp_client_receive, "udp_client_receive", 4096, NULL, 5, NULL);
+    xTaskCreate(test_task, "test_task", 4096, NULL, 4, NULL);
+
 }
 
