@@ -1,5 +1,5 @@
 //TODO:
-// 1. thermistor function
+// 1. thermistor function - DONE
 // 2. set up water alarm (timer)
 // 3. make ping_led light an led and be asynchronous
 // 4. format socket output to be in JSON
@@ -12,12 +12,17 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 
 //rtos
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "freertos/event_groups.h"
+
+//timers
+#include "driver/periph_ctrl.h"
+#include "driver/timer.h"
 
 //gpio & adc
 #include "driver/gpio.h"
@@ -120,8 +125,24 @@ const int WIFI_CONNECTED_BIT = BIT0;                    //The event group allows
 static const char *TAG = "wifi station";
 static int s_retry_num = 0;
 
+//timer variables
+#define TIMER_DIVIDER         16    //  Hardware timer clock divider
+#define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)  // to seconds
+#define TIMER_INTERVAL_SEC   (1)    // Sample test interval for the first timer
+#define TEST_WITH_RELOAD      1     // Testing will be done with auto reload
+
+// A simple structure to pass "events" to main task
+typedef struct {
+    int flag;     // flag for enabling stuff in main code
+} timer_event_t;
+
+// Initialize queue handler for timer-based events
+xQueueHandle timer_queue;
+
+//function headers
 static void ping_led();
-static int battery();
+static int battery_read();
+static int thermistor_read();
 
 
 ////WIFI SETUP/////////////////////////////////////////////////////////////////////
@@ -247,7 +268,10 @@ static void udp_client_receive() {
                     ping_led();
                 }
 
-                printf("number at the end: %s", (rx_buffer+5));
+                int newWaterTimerInterval = atoi(rx_buffer+5);
+                printf("number at the end: %d", newWaterTimerInterval);
+
+                timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, newWaterTimerInterval * TIMER_SCALE);
             }
 
         }
@@ -270,10 +294,11 @@ static void udp_client_send(char* message) {
     //assuming ip4v only
     printf("attempting to send\n");
 
-    int batteryVoltage = battery();
+    //int batteryVoltage = battery_read();
 
 
-    printf("battery: %d\n", batteryVoltage);
+    //printf("battery: %d\n", batteryVoltage);
+    printf("%s\n", message);
 
     int err = sendto(sock, message, strlen(message), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
     if (err < 0) {
@@ -386,7 +411,74 @@ static void gpio_setup() {
     bounceCount = 0;
 }
 
-static int battery() {
+////WATER TIMER SETUP/////////////////////////////////////////////////////////////////////
+
+// ISR handler
+void IRAM_ATTR timer_group0_isr(void *para) {
+
+    // Prepare basic event data, aka set flag
+    timer_event_t evt;
+    evt.flag = 1;
+
+    // Clear the interrupt, Timer 0 in group 0
+    TIMERG0.int_clr_timers.t0 = 1;
+
+    // After the alarm triggers, we need to re-enable it to trigger it next time
+    TIMERG0.hw_timer[TIMER_0].config.alarm_en = TIMER_ALARM_EN;
+
+    // Send the event data back to the main program task
+    xQueueSendFromISR(timer_queue, &evt, NULL);
+}
+
+// Initialize timer 0 in group 0 for 1 sec alarm interval and auto reload
+static void alarm_init() {
+
+    // Create a FIFO queue for timer-based
+    timer_queue = xQueueCreate(10, sizeof(timer_event_t));
+
+    /* Select and initialize basic parameters of the timer */
+    timer_config_t config;
+    config.divider = TIMER_DIVIDER;
+    config.counter_dir = TIMER_COUNT_UP;
+    config.counter_en = TIMER_PAUSE;
+    config.alarm_en = TIMER_ALARM_EN;
+    config.intr_type = TIMER_INTR_LEVEL;
+    config.auto_reload = TEST_WITH_RELOAD;
+    timer_init(TIMER_GROUP_0, TIMER_0, &config);
+
+    // Timer's counter will initially start from value below
+    timer_set_counter_value(TIMER_GROUP_0, TIMER_0, 0x00000000ULL);
+
+    // Configure the alarm value and the interrupt on alarm
+    timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, TIMER_INTERVAL_SEC * TIMER_SCALE);
+    timer_enable_intr(TIMER_GROUP_0, TIMER_0);
+    timer_isr_register(TIMER_GROUP_0, TIMER_0, timer_group0_isr,
+        (void *) TIMER_0, ESP_INTR_FLAG_IRAM, NULL);
+
+    // Start timer
+    timer_start(TIMER_GROUP_0, TIMER_0);
+}
+
+// The main task of this example program
+static void timer_evt_task(void *arg) {
+    while (1) {
+        // Create dummy structure to store structure from queue
+        timer_event_t evt;
+
+        // Transfer from queue
+        xQueueReceive(timer_queue, &evt, portMAX_DELAY);
+
+        // Do something if triggered!
+        if (evt.flag == 1 && water_alarm_enabled) {
+            printf("Action!\n");
+        }
+    }
+}
+
+////SENSOR READING SETUP/////////////////////////////////////////////////////////////////////
+
+
+static int battery_read() {
 
     if (battery_enabled) {
         //Sample ADC1
@@ -406,9 +498,42 @@ static int battery() {
 
         return esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
     } else {
-        return -1;
+        return -300;
     }
 
+}
+
+static int thermistor_read() {
+
+    if (thermistor_enabled) {
+        //Sample ADC1
+        uint32_t adc_reading = 0;
+        //Multisampling
+        for (int i = 0; i < NO_OF_SAMPLES; i++) {
+            if (unit == ADC_UNIT_1) {
+                adc_reading += adc1_get_raw((adc1_channel_t)channel2);
+            } else {
+                int raw;
+                adc2_get_raw((adc2_channel_t)channel2, ADC_WIDTH_BIT_12, &raw);
+                adc_reading += raw;
+            }
+        }
+        adc_reading /= NO_OF_SAMPLES;
+        //Convert adc_reading to voltage in mV
+        uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+        
+        //calculate resistance across thermistor using voltage divider formula
+        double resistance = (33000.0/((double)voltage/1000.0)) - 10000.0;
+        //convert resistance across thermistor to Kelvin (T0 = 298K, B = 3435, R0 = 10kohm)
+        double temperatureKelvin = -(1 / ((log(10000.0/resistance)/3435.0) - (1/298.0)));
+        //convert Kelvin to Celsius
+        return (temperatureKelvin - 273.15);
+    } else {
+        return -300; //impossible value in Celsius
+    }
+
+    
+    
 }
 
 static void print_char_val_type(esp_adc_cal_value_t val_type)
@@ -466,16 +591,23 @@ static void ping_led() {
 }
 
 static void test_task() {
-    char stepBuf[10];
+    char dataStrBuf[100];
 
     int cnt = 0;
+    int temperature;
+    int battery;
     while(1) {
         printf("cnt: %d\n", cnt++);
         vTaskDelay(1000 / portTICK_RATE_MS);
 
-        itoa(steps, stepBuf, 10);
+        temperature = thermistor_read();
+        battery = battery_read();
 
-        udp_client_send(stepBuf);
+        //itoa(steps, stepBuf, 10);
+        //itoa(temperature, tempBuf, 10);
+        sprintf(dataStrBuf, "{steps: %d, temperature: %d, battery: %d}", steps, temperature, battery);
+
+        udp_client_send(dataStrBuf);
         //gpio_set_level(GPIO_OUTPUT_IO_0, cnt % 2);
         //gpio_set_level(GPIO_OUTPUT_IO_1, cnt % 2);
     }
@@ -488,9 +620,11 @@ void app_main(void)
     wifi_init_sta();
     udp_init();
     adc_init();
+    alarm_init();
 
     xTaskCreate(udp_client_receive, "udp_client_receive", 4096, NULL, 5, NULL);
     xTaskCreate(test_task, "test_task", 4096, NULL, 4, NULL);
+    xTaskCreate(timer_evt_task, "timer_evt_task", 2048, NULL, 3, NULL);
 
 }
 
