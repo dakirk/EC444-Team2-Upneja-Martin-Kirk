@@ -1,7 +1,7 @@
 //TODO:
 // 1. thermistor function - DONE
 // 2. set up water alarm (timer) - DONE
-// 3. make ping_led light an led and be asynchronous
+// 3. make ping_led light an led and be asynchronous - DONE
 // 4. format socket output to be in JSON - DONE?
 // 5. connect with Kyle's Node.js server
 // 6. reorganize for better readablity
@@ -482,10 +482,15 @@ static void timer_evt_task(void *arg) {
 
         // Do something if triggered!
         if (evt.flag == 1 && water_alarm_enabled) {
-            printf("Action!\n");
-            gpio_set_level(GPIO_OUTPUT_IO_0, 1);
-            vTaskDelay(500/portTICK_RATE_MS);
-            gpio_set_level(GPIO_OUTPUT_IO_0, 0);
+            //printf("Action!\n");
+            
+            int i;
+            for (i = 0; i < 5; i++) {
+                gpio_set_level(GPIO_OUTPUT_IO_0, 1);
+                vTaskDelay(500/portTICK_RATE_MS);
+                gpio_set_level(GPIO_OUTPUT_IO_0, 0);
+                vTaskDelay(500/portTICK_RATE_MS);
+            }
         }
     }
 }
