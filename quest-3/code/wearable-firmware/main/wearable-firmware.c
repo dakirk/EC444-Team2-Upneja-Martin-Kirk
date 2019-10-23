@@ -1,8 +1,8 @@
 //TODO:
 // 1. thermistor function - DONE
-// 2. set up water alarm (timer)
+// 2. set up water alarm (timer) - DONE
 // 3. make ping_led light an led and be asynchronous
-// 4. format socket output to be in JSON
+// 4. format socket output to be in JSON - DONE?
 // 5. connect with Kyle's Node.js server
 // 6. reorganize for better readablity
 
@@ -127,8 +127,8 @@ static int s_retry_num = 0;
 
 //timer variables
 #define TIMER_DIVIDER         16    //  Hardware timer clock divider
-#define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)  // to seconds
-#define TIMER_INTERVAL_SEC   (1)    // Sample test interval for the first timer
+#define TIMER_SCALE           (unsigned long long int)(TIMER_BASE_CLK / TIMER_DIVIDER)  // to minutes
+#define TIMER_INTERVAL_SEC   (1800)    // Sample test interval for the first timer
 #define TEST_WITH_RELOAD      1     // Testing will be done with auto reload
 
 // A simple structure to pass "events" to main task
@@ -265,13 +265,21 @@ static void udp_client_receive() {
                 water_alarm_enabled = rx_buffer[3] - 48;
 
                 if (rx_buffer[4] - 48) { //if 5th bit is 1, run the "ping_led() function"
-                    ping_led();
+                    xTaskCreate(ping_led, "ping_led", 4096, NULL, 0, NULL);
                 }
 
-                int newWaterTimerInterval = atoi(rx_buffer+5);
-                printf("number at the end: %d", newWaterTimerInterval);
+                uint64_t newWaterTimerInterval = atoi(rx_buffer+5);
+                uint64_t alarm_value;
+                printf("number at the end: %lld", newWaterTimerInterval);
 
-                timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, newWaterTimerInterval * TIMER_SCALE);
+
+                if (newWaterTimerInterval < 1) {
+                    alarm_value = TIMER_SCALE;
+                } else {
+                    alarm_value = newWaterTimerInterval * TIMER_SCALE;
+                }
+
+                timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, alarm_value);
             }
 
         }
@@ -338,10 +346,11 @@ static void gpio_task_example(void* arg)
 
                 bounceCount = 0;
                 steps++;
-                gpio_set_level(GPIO_OUTPUT_IO_0, 1);
-                printf("GPIO[%d] intr, val: %d\n", io_num, gpio_get_level(io_num));
-                vTaskDelay(500/portTICK_RATE_MS);
-                gpio_set_level(GPIO_OUTPUT_IO_0, 0);
+
+                //gpio_set_level(GPIO_OUTPUT_IO_0, 1);
+                //printf("GPIO[%d] intr, val: %d\n", io_num, gpio_get_level(io_num));
+                vTaskDelay(100/portTICK_RATE_MS);
+                //gpio_set_level(GPIO_OUTPUT_IO_0, 0);
 
                 interrupt_enabled = 1; //reenable interrupts
 
@@ -450,7 +459,10 @@ static void alarm_init() {
     timer_set_counter_value(TIMER_GROUP_0, TIMER_0, 0x00000000ULL);
 
     // Configure the alarm value and the interrupt on alarm
-    timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, TIMER_INTERVAL_SEC * TIMER_SCALE);
+
+    uint64_t alarm_value = TIMER_INTERVAL_SEC * TIMER_SCALE;
+
+    timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, alarm_value);
     timer_enable_intr(TIMER_GROUP_0, TIMER_0);
     timer_isr_register(TIMER_GROUP_0, TIMER_0, timer_group0_isr,
         (void *) TIMER_0, ESP_INTR_FLAG_IRAM, NULL);
@@ -471,6 +483,9 @@ static void timer_evt_task(void *arg) {
         // Do something if triggered!
         if (evt.flag == 1 && water_alarm_enabled) {
             printf("Action!\n");
+            gpio_set_level(GPIO_OUTPUT_IO_0, 1);
+            vTaskDelay(500/portTICK_RATE_MS);
+            gpio_set_level(GPIO_OUTPUT_IO_0, 0);
         }
     }
 }
@@ -586,8 +601,19 @@ static void adc_init() {
 
 }
 
+//flashes LED independently of other tasks
 static void ping_led() {
-    printf("led pinged!\n");
+
+    int i;
+
+    for (i = 0; i < 5; i++) {
+        gpio_set_level(GPIO_OUTPUT_IO_1, 1);
+        vTaskDelay(500/portTICK_RATE_MS);
+        gpio_set_level(GPIO_OUTPUT_IO_1, 0);
+        vTaskDelay(500/portTICK_RATE_MS);
+    }
+
+    vTaskDelete(NULL); //kill thread when finished
 }
 
 static void test_task() {
