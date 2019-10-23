@@ -6,8 +6,6 @@
 <!-- HTML HEAD -->
 <head>
 	<title>TEST</title>
-	<!-- Source for Socket.io - this one is local -->
-	<script src="/socket.io/socket.io.js"></script>
 </head>
 
 <body>
@@ -17,20 +15,20 @@
 
 	<!-- Script to handle socket -->
 	<script>
-		//var index = 0;
-		//var socket = io();
-		//socket.on('message', function(msg){
-		//	console.log(msg);
-		//	document.getElementById("message_disp").innerHTML = msg;
-		//});
+		const Http = new XMLHttpRequest();
+		const url='http://localhost:3000/vibration';
+		Http.open("POST", url);
+		Http.setRequestHeader("Content-Type", "application/json");
+		Http.send(JSON.stringify({"state": "0"}));
 
-		var xmlhttp = new XMLHttpRequest();   // new HttpRequest instance 
-		var theUrl = "localhost:3000/updatedevice";
-		xmlhttp.open("POST", theUrl);
-		xmlhttp.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-		xmlhttp.send(JSON.stringify({"state": "010 3600"}));
+		Http.onreadystatechange = (e) => {
+		  console.log(Http)
+		}
+		
+	
 	</script>
 
 </body>
 
 </html>
+
