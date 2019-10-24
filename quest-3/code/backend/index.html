@@ -6,16 +6,22 @@
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
 <script src="backend/server.js"></script>
 <script>
+	var stepValue = 1;
 window.onload = function () {
 	//how many data points to show, maximum
-	const chartLength = 20;
+
+	var counter = 0;
+	const chartLength = 200;
 	//one reading's worth of data, global to compare with future data readings
 	var jsonPacket = "";
 	//battery data
+	//var allbatVals = [];
 	var batVals = [];
 	//step data
+	//var allstepVals = [];
 	var stepVals = [];
 	//temperature data
+	//var alltempVals = [];
 	var tempVals = [];
 
 	//set up chart: everything but data
@@ -25,7 +31,7 @@ window.onload = function () {
 			text: "Sensor Readouts"
 		},
 		axisX: {
-			interval: 1,
+			interval: 10,
 			title: "Sample time (seconds since startup)",
 			suffix: "s",
 		},
@@ -35,7 +41,9 @@ window.onload = function () {
 			tickColor: "#C24642",
 			labelFontColor: "#C24642",
 			titleFontColor: "#C24642",
-			suffix: "mV"
+			suffix: "mV",
+			maximum: 5000,
+			minimum: 0
 		},
 		{
 			title: "Temperature",
@@ -43,7 +51,9 @@ window.onload = function () {
 			tickColor: "#2245ba",
 			labelFontColor: "#2245ba",
 			titleFontColor: "#2245ba",
-			suffix: "C"
+			suffix: "C",
+			maximum: 70,
+			minimum: 0
 		}],
 		axisY2: {
 			title: "Steps",
@@ -105,9 +115,17 @@ window.onload = function () {
 		var battery = msg["battery"];
 		var steps = msg["steps"];
 		var temperature = msg["temperature"];
-		batVals.push(battery);
-		stepVals.push(steps);
-		tempVals.push(temperature);
+		document.getElementById("divMsg").innerHTML = "Count: " + steps;
+
+		if (battery != -300) document.getElementById("divMsg2").innerHTML = "Voltage: " + battery;
+		else document.getElementById("divMsg2").innerHTML = "Disabled";
+		if (temperature != -300) document.getElementById("divMsg3").innerHTML = "Temp: " + temperature;
+		else document.getElementById("divMsg3").innerHTML = "Disabled";
+
+		batVals.push({x: counter, y: battery});
+		stepVals.push({x: counter, y: steps});
+		tempVals.push({x: counter, y: temperature});
+
 
 		if (batVals.length > chartLength) {
 			batVals.shift();
@@ -120,16 +138,40 @@ window.onload = function () {
 		if (tempVals.length > chartLength) {
 			tempVals.shift();
 		}
-
-		chart.render();
-		/*
+		
 		console.log("battery is:");
 		console.log(battery);
 		console.log("steps is:");
 		console.log(steps);
 		console.log("temperature is:");
 		console.log(temperature);
-		*/
+
+		chart.options.axisY2.maximum = (steps *1.1);
+		chart.options.axisY2.minimum = (steps - 20)
+
+		
+		if (battery === -300) {
+			chart.options.data[0].visible = false;
+		} else {
+			chart.options.data[0].visible = true;
+		}
+
+		if (temperature === -300) {
+			chart.options.data[1].visible = false;
+		} else {
+			chart.options.data[1].visible = true;
+		
+		}
+		if (stepValue == 1) {
+			chart.options.data[2].visible = true;
+		} else {
+			chart.options.data[2].visible = false;
+		}
+
+		chart.render();
+
+		counter++;
+		
 	});
 
 	    	//fix labels
@@ -217,14 +259,18 @@ window.onload = function () {
 	</div>
 	<div class="col justify-content-center">
 		<input id="steps" type="checkbox" checked data-toggle="toggle" data-on="Steps" data-off="No Steps" data-onstyle="success" data-offstyle="danger" onclick="steps()">
+    <div id="divMsg"></div>
 
 	</div>
 	<div class="col justify-content-center" >
 		<input id="battery" type="checkbox" checked data-toggle="toggle" data-on="Battery" data-off="No Battery" data-onstyle="success" data-offstyle="danger">
+    <div id="divMsg2"></div>
 
 	</div>
 	<div class="col justify-content-center">
 		<input id="temp" type="checkbox" checked data-toggle="toggle" data-on="Temp" data-off="No Temp" data-onstyle="success" data-offstyle="danger">
+    <div id="divMsg3"></div>
+
 
 	</div>
 	<div class="form-group col-xs-1 col-xs-1">
@@ -282,6 +328,7 @@ $(document).ready(function() {
     $('#steps').change(function() {
         if($(this).is(":checked")) {
             console.log("Steps ON");
+            stepValue = 1;
 						const Http = new XMLHttpRequest();
 						const url='http://192.168.1.102:3000/vibration';
 						Http.open("POST", url);
@@ -292,6 +339,7 @@ $(document).ready(function() {
         }
 				else {
 					console.log("Steps OFF");
+					stepValue = 0;
 					const Http = new XMLHttpRequest();
 					const url='http://192.168.1.102:3000/vibration';
 					Http.open("POST", url);
@@ -306,6 +354,9 @@ $(document).ready(function() {
 						console.log("Battery ON");
 						const Http = new XMLHttpRequest();
 						const url='http://192.168.1.102:3000/battery';
+
+						
+
 						Http.open("POST", url);
 						Http.setRequestHeader("Content-Type", "application/json");
 						Http.send(JSON.stringify({"state": "1"}));
@@ -316,6 +367,8 @@ $(document).ready(function() {
 					console.log("Battery OFF");
 					const Http = new XMLHttpRequest();
 					const url='http://192.168.1.102:3000/battery';
+
+
 					Http.open("POST", url);
 					Http.setRequestHeader("Content-Type", "application/json");
 					Http.send(JSON.stringify({"state": "0"}));
@@ -369,6 +422,7 @@ $(document).ready(function() {
 				}
 		});
 });
+
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
 <script src="https://d3js.org/d3.v5.min.js"></script>
