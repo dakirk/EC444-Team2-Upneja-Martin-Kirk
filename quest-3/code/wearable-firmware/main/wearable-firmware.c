@@ -593,7 +593,7 @@ static void output_task() {
         sprintf(jsonBuf, "{\"steps\": %d, \"temperature\": %d, \"battery\": %d}", steps, temperature, battery);
         udp_client_send(jsonBuf);
 
-        vTaskDelay(1000 / portTICK_RATE_MS);
+        vTaskDelay(100 / portTICK_RATE_MS);
 
     }
 }

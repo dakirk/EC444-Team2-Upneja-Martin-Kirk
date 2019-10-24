@@ -25,9 +25,11 @@ var server = dgram.createSocket('udp4');
 
 //file read
 const fs = require('fs');
+const path = "data.json";
+var arr = [];
 
 //Global state variable [vibration, temperature, battery, water, ping, time]
-var state = "111111800";
+var state = "111101800";
 
 //API ENDPOINTS/////////////////////////////////////////////////////////////////////////////////////////
 
@@ -139,10 +141,16 @@ app.post('/time', jsonParser, function(req, res){
 
 // Send sensor readings to frontend
 server.on('message', function (message, remote) {
-    io.emit('message', message);
+    io.emit('message', JSON.parse(message.toString()));
+    arr.push(JSON.parse(message.toString()));
     console.log(JSON.parse(message.toString()));
     devPORT = remote.port;
     devHOST = remote.address;
+    fs.writeFile(path, arr, 'utf8', function (err) {
+      if (err) {
+          return console.log(err);
+      }
+    });
 });
 
 //HOST, SOCKET, AND EXPRESS INITIALIZATIONS/////////////////////////////////////////////////////////////
@@ -168,16 +176,3 @@ server.on('listening', function () {
 
 // Bind server to port and IP
 server.bind(PORT, HOST);
-
-
-
-
-
-
-
-
-
-
-
-
-
