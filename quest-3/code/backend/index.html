@@ -1,34 +1,354 @@
-<!-- client side -->
-
-<!doctype html>
+<!DOCTYPE HTML>
 <html>
-
-<!-- HTML HEAD -->
 <head>
-	<title>TEST</title>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+<link href="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/css/bootstrap4-toggle.min.css" rel="stylesheet">
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
+<script>
+window.onload = function () {
+	//how many data points to show, maximum
+	const chartLength = 20;
+	//one reading's worth of data, global to compare with future data readings
+	var jsonPacket = "";
+
+	//set up chart: everything but data
+  // testing commit
+	var chart = new CanvasJS.Chart("chartContainer", {
+		title: {
+			text: "Sensor Readouts"
+		},
+		axisX: {
+			interval: 1,
+			title: "Sample time (seconds since startup)",
+			suffix: "s",
+		},
+		axisY:[{
+			title: "Voltage",
+			lineColor: "#C24642",
+			tickColor: "#C24642",
+			labelFontColor: "#C24642",
+			titleFontColor: "#C24642",
+			suffix: "mV"
+		},
+		{
+			title: "Temperature",
+			lineColor: "#2245ba",
+			tickColor: "#2245ba",
+			labelFontColor: "#2245ba",
+			titleFontColor: "#2245ba",
+			suffix: "C"
+		}],
+		axisY2: {
+			title: "Steps",
+			lineColor: "#2cad1d",
+			tickColor: "#2cad1d",
+			labelFontColor: "#2cad1d",
+			titleFontColor: "#2cad1d",
+			suffix: "#"
+		},
+		toolTip: {
+			shared: true
+		},
+		legend: {
+			cursor: "pointer",
+			verticalAlign: "top",
+			horizontalAlign: "center",
+			dockInsidePlotArea: true,
+			itemclick: toggleDataSeries
+		},
+		data: [{
+			type:"line",
+			axisYIndex: 0,
+			name: "Battery Voltage",
+			color: "#C24642",
+			showInLegend: true,
+			markerSize: 0,
+			yValueFormatString: "####mV",
+			dataPoints: []
+		},
+		{
+			type: "line",
+			axisYIndex: 1,
+			name: "Thermistor Temperature",
+			color: "#2245ba",
+			showInLegend: true,
+			markerSize: 0,
+			yValueFormatString: "###C",
+			dataPoints: []
+		},
+		{
+			type: "line",
+			axisYType: "secondary",
+			name: "Step Count",
+			color: "#90bf22",
+			showInLegend: true,
+			markerSize: 0,
+			yValueFormatString: "###",
+			dataPoints: []
+		}]
+	});
+	//get request xhr variables
+	var xhrOnLoad = new XMLHttpRequest();
+	var xhrAddPoint = new XMLHttpRequest();
+
+	//using response from get request, set chart contents
+	xhrOnLoad.onreadystatechange = function() {
+	    if (this.readyState == 4 && this.status == 200) {
+
+	    	//fix labels
+	    	var jsonAdjusted = this.responseText.replace(/timestamp/g, "x");
+
+	    	var batteryData = JSON.parse(jsonAdjusted.replace(/battery/g, "y")).slice(-chartLength);
+	    	var temperatureData = JSON.parse(jsonAdjusted.replace(/temperature/g, "y")).slice(-chartLength);
+	    	var stepsData = JSON.parse(jsonAdjusted.replace(/ultrasonic/g, "y")).slice(-chartLength);
+				console.log("testing if this outputs");
+	    	chart.options.data[0].dataPoints = batteryData;
+	    	chart.options.data[1].dataPoints = temperatureData;
+	    	chart.options.data[2].dataPoints = stepsData;
+	    	console.log(batteryData);
+	    	console.log(chart.options.data[0].dataPoints);
+
+			chart.render();
+			var intervalID = window.setInterval(getGraphData, 100);
+
+
+		}
+	};
+	//send get request for file data
+	xhrOnLoad.open("GET", '/data', true);
+	xhrOnLoad.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+	xhrOnLoad.send();
+	//repeat this function every second to update chart data
+	function getGraphData() {
+		//console.log("updated!")
+		//operation to do when GET is called
+		xhrAddPoint.onreadystatechange = function() {
+			if (this.readyState == 4 && this.status == 200) {
+				//console.log(this.responseText)
+				var newJsonPacket = this.responseText.replace(/timestamp/g, "x");
+				//check if new packet is different from the old one, and only re-render if it is
+		    	if (newJsonPacket != jsonPacket) {
+		    		jsonPacket = newJsonPacket;
+		    		//split chart data into 4
+					var batteryData = JSON.parse(jsonPacket.replace(/battery/g, "y"));
+					var temperatureData = JSON.parse(jsonPacket.replace(/temperature/g, "y"));
+					var stepsData = JSON.parse(jsonPacket.replace(/ultrasonic/g, "y"));
+					//update chart
+					chart.options.data[0].dataPoints.push(batteryData[0]);
+		    		chart.options.data[1].dataPoints.push(temperatureData[0]);
+		    		chart.options.data[2].dataPoints.push(stepsData[0]);
+		    		//if chart too big, trim chart
+		    		console.log(chart.options.data[0].dataPoints.length)
+		    		if (chart.options.data[0].dataPoints.length >= chartLength) {
+		    			chart.options.data[0].dataPoints.shift()
+		    			chart.options.data[1].dataPoints.shift()
+		    			chart.options.data[2].dataPoints.shift()
+		    		}
+		    		chart.render();
+			    	}
+					//get the json packet of chart data and format
+					//var jsonAdjusted = this.responseText.replace(/timestamp/g, "x");
+
+			}
+		}
+		//send get request for serial line output
+		xhrAddPoint.open("GET", '/serialline', true);
+		xhrAddPoint.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+		xhrAddPoint.send();
+	}
+	function toggleDataSeries(e){
+		if (typeof(e.dataSeries.visible) === "undefined" || e.dataSeries.visible) {
+			e.dataSeries.visible = false;
+		}
+		else{
+			e.dataSeries.visible = true;
+		}
+		chart.render();
+	}
+
+}
+</script>
 </head>
-
 <body>
-	<!-- HTML layout -->
-  <h1>Hello world -- test 1, 2, 3</h1> <br>
-	<div> Received: <p id="message_disp"></p> </div>
+<div id="chartContainer" style="height: 50vh; width: 100%;"></div>
+<br />
+<br />
+<div id="ButtonLayout" class="row justify-content-center align-items-center" style="height: 40vh; width: 100vw;">
+	<div class="col">
+	</div>
+	<div class="col justify-content-center">
+		<input id="steps" type="checkbox" checked data-toggle="toggle" data-on="Steps" data-off="No Steps" data-onstyle="success" data-offstyle="danger" onclick="steps()">
 
-	<!-- Script to handle socket -->
-	<script>
+	</div>
+	<div class="col justify-content-center" >
+		<input id="battery" type="checkbox" checked data-toggle="toggle" data-on="Battery" data-off="No Battery" data-onstyle="success" data-offstyle="danger">
+
+	</div>
+	<div class="col justify-content-center">
+		<input id="temp" type="checkbox" checked data-toggle="toggle" data-on="Temp" data-off="No Temp" data-onstyle="success" data-offstyle="danger">
+
+	</div>
+	<div class="form-group col-xs-1 col-xs-1">
+    <label for="code">Water Frequency</label><br />
+		<div class="col">
+		<input id="water" type="checkbox" checked data-toggle="toggle" data-on="Enable" data-off="Disable" data-onstyle="success" data-offstyle="danger">
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<button type="button" class="btn btn-primary" onclick="waterSubmit()">Submit</button>
+	</div>
+	<div class=" col">
+		<input class="form-control" type="number" value="30" id="example-number-input" min ="1">
+	</div>
+	</div>
+	<div class="col-sm-1">
+	</div>
+	<div class="col justify-content-center">
+		<div class="float-lg-middle"><button type="button" class="btn btn-dark" onclick="find()">Find my Device!</button>
+</div>
+	</div>
+
+</div>
+<script>
+function find() {
+	console.log("Device Pinged!");
+		console.log("executing first");
+	const Http = new XMLHttpRequest();
+	const url='http://192.168.1.142:3000/ping';
+	Http.open("POST", url);
+	Http.setRequestHeader("Content-Type", "application/json");
+	Http.send(JSON.stringify({"state": "1"}));
+	Http.onreadystatechange = (e) => {
+			console.log(Http);
+		}
+		console.log("executing second");
+		const Http2 = new XMLHttpRequest();
+		Http2.open("POST", url);
+		Http2.setRequestHeader("Content-Type", "application/json");
+		Http2.send(JSON.stringify({"state": "0"}));
+		Http2.onreadystatechange = (e) => {
+				console.log(Http);
+			}
+}
+
+function waterSubmit() {
+	if (document.getElementById("example-number-input").value > 0) {
+		console.log(document.getElementById("example-number-input").value);
+		var timer = document.getElementById("example-number-input").value*60+5;
+		console.log(timer);
 		const Http = new XMLHttpRequest();
-		const url='http://localhost:3000/vibration';
+		const url='http://192.168.1.142:3000/time';
 		Http.open("POST", url);
 		Http.setRequestHeader("Content-Type", "application/json");
-		Http.send(JSON.stringify({"state": "0"}));
-
+		Http.send(JSON.stringify({"state":timer}));
 		Http.onreadystatechange = (e) => {
-		  console.log(Http)
-		}
-		
-	
-	</script>
+				console.log(Http);
+			}
+	} else {
+		alert("Please enter a valid input!");
+	}
+}
+$(document).ready(function() {
+    //set initial state.
+    $('#steps').change(function() {
+        if($(this).is(":checked")) {
+            console.log("Steps ON");
+						const Http = new XMLHttpRequest();
+						const url='http://192.168.1.142:3000/vibration';
+						Http.open("POST", url);
+						Http.setRequestHeader("Content-Type", "application/json");
+						Http.send(JSON.stringify({"state": "1"}));
+						Http.onreadystatechange = (e) => {
+							  console.log(Http);
+							}
+        }
+				else {
+					console.log("Steps OFF");
+					const Http = new XMLHttpRequest();
+					const url='http://192.168.1.142:3000/vibration';
+					Http.open("POST", url);
+					Http.setRequestHeader("Content-Type", "application/json");
+					Http.send(JSON.stringify({"state": "0"}));
+					Http.onreadystatechange = (e) => {
+							console.log(Http);
+						}
+				}
+    });
+		$('#battery').change(function() {
+				if($(this).is(":checked")) {
+						console.log("Battery ON");
+						const Http = new XMLHttpRequest();
+						const url='http://192.168.1.142:3000/battery';
+						Http.open("POST", url);
+						Http.setRequestHeader("Content-Type", "application/json");
+						Http.send(JSON.stringify({"state": "1"}));
+						Http.onreadystatechange = (e) => {
+								console.log(Http);
+							}
+				}
+				else {
+					console.log("Battery OFF");
+					const Http = new XMLHttpRequest();
+					const url='http://192.168.1.142:3000/battery';
+					Http.open("POST", url);
+					Http.setRequestHeader("Content-Type", "application/json");
+					Http.send(JSON.stringify({"state": "0"}));
+					Http.onreadystatechange = (e) => {
+							console.log(Http);
+						}
+				}
+		});
+		$('#temp').change(function() {
+				if($(this).is(":checked")) {
+						console.log("Temp ON");
+						const Http = new XMLHttpRequest();
+						const url='http://192.168.1.142:3000/temperature';
+						Http.open("POST", url);
+						Http.setRequestHeader("Content-Type", "application/json");
+						Http.send(JSON.stringify({"state": "1"}));
+						Http.onreadystatechange = (e) => {
+								console.log(Http);
+							}
+				}
+				else {
+					console.log("Temp OFF");
+					const Http = new XMLHttpRequest();
+					const url='http://192.168.1.142:3000/temperature';
+					Http.open("POST", url);
+					Http.setRequestHeader("Content-Type", "application/json");
+					Http.send(JSON.stringify({"state": "0"}));
+					Http.onreadystatechange = (e) => {
+							console.log(Http);
+						}
+				}
+		});
+		$('#water').change(function() {
+				if($(this).is(":checked")) {
+						console.log("Water ON");
+						const Http = new XMLHttpRequest();
+						const url='http://192.168.1.142:3000/water';
+						Http.open("POST", url);
+						Http.setRequestHeader("Content-Type", "application/json");
+						Http.send(JSON.stringify({"state": "1"}));
+						Http.onreadystatechange = (e) => {
+								console.log(Http);
+							}
+				}
+				else {
+					console.log("Water OFF");
+					const Http = new XMLHttpRequest();
+					const url='http://192.168.1.142:3000/water';
+					Http.open("POST", url);
+					Http.setRequestHeader("Content-Type", "application/json");
+					Http.send(JSON.stringify({"state": "0"}));
+					Http.onreadystatechange = (e) => {
+							console.log(Http);
+						}
+				}
+		});
+});
+</script>
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script src="https://canvasjs.com/assets/script/canvasjs.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/js/bootstrap4-toggle.min.js"></script>
 
 </body>
-
 </html>
-

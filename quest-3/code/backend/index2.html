@@ -1,0 +1,34 @@
+<!-- client side -->
+
+<!doctype html>
+<html>
+
+<!-- HTML HEAD -->
+<head>
+	<title>TEST</title>
+</head>
+
+<body>
+	<!-- HTML layout -->
+  <h1>Hello world -- test 1, 2, 3</h1> <br>
+	<div> Received: <p id="message_disp"></p> </div>
+
+	<!-- Script to handle socket -->
+	<script>
+		const Http = new XMLHttpRequest();
+		const url='http://localhost:3000/vibration';
+		Http.open("POST", url);
+		Http.setRequestHeader("Content-Type", "application/json");
+		Http.send(JSON.stringify({"state": "0"}));
+
+		Http.onreadystatechange = (e) => {
+		  console.log(Http)
+		}
+		
+	
+	</script>
+
+</body>
+
+</html>
+

@@ -14,7 +14,7 @@ var urlencodedParser = bodyParser.urlencoded({ extended: false });
 
 // Port and IP of Host
 var PORT = 3333; //internal is 1236, external is 3333
-var HOST = "192.168.1.102"; //Kyle's Laptop is .102, Pi is .122
+var HOST = "192.168.1.142"; //Kyle's Laptop is .102, Pi is .122
 
 //Port and IP of Device
 var devPORT = 3333;
@@ -27,7 +27,7 @@ var server = dgram.createSocket('udp4');
 const fs = require('fs');
 
 //Global state variable [vibration, temperature, battery, water, ping, time]
-var state = "111111800";
+var state = "111101800";
 
 //API ENDPOINTS/////////////////////////////////////////////////////////////////////////////////////////
 
@@ -168,16 +168,3 @@ server.on('listening', function () {
 
 // Bind server to port and IP
 server.bind(PORT, HOST);
-
-
-
-
-
-
-
-
-
-
-
-
-
