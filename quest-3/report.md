@@ -25,7 +25,7 @@ In this quest, we successfully demonstrated:
 
 ### Front-end
 
-In our HTML file, we embedded bootstrap 5 toggle buttons to turn sensor readings on or off. The on-toggle command is evaluated through jquery functions to take away the necessity of a submit button. The water alarm button cannot be set to a value other than a positive number and provides an alert when a number less than or equal to zero is entered.  We also embedded a "find my device" button that lights up the red led when pressed.
+In our HTML file, we embedded bootstrap 5 toggle buttons to turn sensor readings on or off. The on-toggle command is evaluated through jquery functions to take away the necessity of a submit button. The water alarm button cannot be set to a value other than a positive number and provides an alert when a number less than or equal to zero is entered.  We also embedded a "find my device" button that lights up the red LED when pressed.
 
 Sensor data is read from the TCP Socket and is graphed into Canvas.js every 1/10 of a second. Turning sensor readings off hides the relevant line in the graph and sends a HTTP post request to the node.js server that carries a JSON payload.  The JSON payload is as follows:
 
