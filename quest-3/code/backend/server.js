@@ -142,7 +142,7 @@ app.post('/time', jsonParser, function(req, res){
 // Send sensor readings to frontend
 server.on('message', function (message, remote) {
     io.emit('message', JSON.parse(message.toString()));
-    arr.push(message.toString());
+    arr.push(JSON.parse(message.toString()));
     console.log(JSON.parse(message.toString()));
     devPORT = remote.port;
     devHOST = remote.address;

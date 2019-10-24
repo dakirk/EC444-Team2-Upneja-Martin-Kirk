@@ -92,7 +92,7 @@ int battery_enabled = 1;                                //battery voltage enable
 int water_alarm_enabled = 1;                            //water alert enable flag
 
 //socket variables
-#define HOST_IP_ADDR "192.168.1.101"                    //target server ip
+#define HOST_IP_ADDR "192.168.1.102"                    //target server ip
 #define PORT 3333                                       //target server port
 char rx_buffer[128];
 char addr_str[128];
@@ -593,7 +593,7 @@ static void output_task() {
         sprintf(jsonBuf, "{\"steps\": %d, \"temperature\": %d, \"battery\": %d}", steps, temperature, battery);
         udp_client_send(jsonBuf);
 
-        vTaskDelay(1000 / portTICK_RATE_MS);
+        vTaskDelay(100 / portTICK_RATE_MS);
 
     }
 }
