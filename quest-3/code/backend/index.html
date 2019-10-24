@@ -4,6 +4,7 @@
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
 <link href="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/css/bootstrap4-toggle.min.css" rel="stylesheet">
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
+<script src="backend/server.js"></script>
 <script>
 window.onload = function () {
 	//how many data points to show, maximum
@@ -93,7 +94,21 @@ window.onload = function () {
 
 	//using response from get request, set chart contents
 	xhrOnLoad.onreadystatechange = function() {
-	    if (this.readyState == 4 && this.status == 200) {
+		console.log("1");
+				console.log("2");
+				var index = 0;
+				var socket = io();
+				socket.on('message', function(msg){
+					var battery = msg["battery"];
+					var steps = msg["steps"];
+					var temperature = msg["temperature"];
+					console.log("battery is:");
+					console.log(battery);
+					console.log("steps is:");
+					console.log(steps);
+					console.log("temperature is:");
+					console.log(temperature);
+				});
 
 	    	//fix labels
 	    	var jsonAdjusted = this.responseText.replace(/timestamp/g, "x");
@@ -112,7 +127,6 @@ window.onload = function () {
 			var intervalID = window.setInterval(getGraphData, 100);
 
 
-		}
 	};
 	//send get request for file data
 	xhrOnLoad.open("GET", '/data', true);
@@ -138,7 +152,6 @@ window.onload = function () {
 		    		chart.options.data[1].dataPoints.push(temperatureData[0]);
 		    		chart.options.data[2].dataPoints.push(stepsData[0]);
 		    		//if chart too big, trim chart
-		    		console.log(chart.options.data[0].dataPoints.length)
 		    		if (chart.options.data[0].dataPoints.length >= chartLength) {
 		    			chart.options.data[0].dataPoints.shift()
 		    			chart.options.data[1].dataPoints.shift()
@@ -209,37 +222,30 @@ window.onload = function () {
 <script>
 function find() {
 	console.log("Device Pinged!");
-		console.log("executing first");
 	const Http = new XMLHttpRequest();
 	const url='http://192.168.1.142:3000/ping';
 	Http.open("POST", url);
 	Http.setRequestHeader("Content-Type", "application/json");
 	Http.send(JSON.stringify({"state": "1"}));
 	Http.onreadystatechange = (e) => {
-			console.log(Http);
 		}
-		console.log("executing second");
 		const Http2 = new XMLHttpRequest();
 		Http2.open("POST", url);
 		Http2.setRequestHeader("Content-Type", "application/json");
 		Http2.send(JSON.stringify({"state": "0"}));
 		Http2.onreadystatechange = (e) => {
-				console.log(Http);
 			}
 }
 
 function waterSubmit() {
 	if (document.getElementById("example-number-input").value > 0) {
-		console.log(document.getElementById("example-number-input").value);
 		var timer = document.getElementById("example-number-input").value*60+5;
-		console.log(timer);
 		const Http = new XMLHttpRequest();
 		const url='http://192.168.1.142:3000/time';
 		Http.open("POST", url);
 		Http.setRequestHeader("Content-Type", "application/json");
 		Http.send(JSON.stringify({"state":timer}));
 		Http.onreadystatechange = (e) => {
-				console.log(Http);
 			}
 	} else {
 		alert("Please enter a valid input!");
@@ -256,7 +262,6 @@ $(document).ready(function() {
 						Http.setRequestHeader("Content-Type", "application/json");
 						Http.send(JSON.stringify({"state": "1"}));
 						Http.onreadystatechange = (e) => {
-							  console.log(Http);
 							}
         }
 				else {
@@ -267,7 +272,6 @@ $(document).ready(function() {
 					Http.setRequestHeader("Content-Type", "application/json");
 					Http.send(JSON.stringify({"state": "0"}));
 					Http.onreadystatechange = (e) => {
-							console.log(Http);
 						}
 				}
     });
@@ -280,7 +284,6 @@ $(document).ready(function() {
 						Http.setRequestHeader("Content-Type", "application/json");
 						Http.send(JSON.stringify({"state": "1"}));
 						Http.onreadystatechange = (e) => {
-								console.log(Http);
 							}
 				}
 				else {
@@ -291,7 +294,6 @@ $(document).ready(function() {
 					Http.setRequestHeader("Content-Type", "application/json");
 					Http.send(JSON.stringify({"state": "0"}));
 					Http.onreadystatechange = (e) => {
-							console.log(Http);
 						}
 				}
 		});
@@ -315,7 +317,6 @@ $(document).ready(function() {
 					Http.setRequestHeader("Content-Type", "application/json");
 					Http.send(JSON.stringify({"state": "0"}));
 					Http.onreadystatechange = (e) => {
-							console.log(Http);
 						}
 				}
 		});
@@ -328,7 +329,6 @@ $(document).ready(function() {
 						Http.setRequestHeader("Content-Type", "application/json");
 						Http.send(JSON.stringify({"state": "1"}));
 						Http.onreadystatechange = (e) => {
-								console.log(Http);
 							}
 				}
 				else {
@@ -339,12 +339,12 @@ $(document).ready(function() {
 					Http.setRequestHeader("Content-Type", "application/json");
 					Http.send(JSON.stringify({"state": "0"}));
 					Http.onreadystatechange = (e) => {
-							console.log(Http);
 						}
 				}
 		});
 });
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
 <script src="https://d3js.org/d3.v5.min.js"></script>
 <script src="https://canvasjs.com/assets/script/canvasjs.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
