@@ -11,9 +11,15 @@ window.onload = function () {
 	const chartLength = 20;
 	//one reading's worth of data, global to compare with future data readings
 	var jsonPacket = "";
+	//battery data
+	var batVals = [];
+	//step data
+	var stepVals = [];
+	//temperature data
+	var tempVals = [];
 
 	//set up chart: everything but data
-  // testing commit
+  	// testing commit
 	var chart = new CanvasJS.Chart("chartContainer", {
 		title: {
 			text: "Sensor Readouts"
@@ -65,7 +71,7 @@ window.onload = function () {
 			showInLegend: true,
 			markerSize: 0,
 			yValueFormatString: "####mV",
-			dataPoints: []
+			dataPoints: batVals
 		},
 		{
 			type: "line",
@@ -75,7 +81,7 @@ window.onload = function () {
 			showInLegend: true,
 			markerSize: 0,
 			yValueFormatString: "###C",
-			dataPoints: []
+			dataPoints: tempVals
 		},
 		{
 			type: "line",
@@ -85,32 +91,49 @@ window.onload = function () {
 			showInLegend: true,
 			markerSize: 0,
 			yValueFormatString: "###",
-			dataPoints: []
+			dataPoints: stepVals
 		}]
 	});
 	//get request xhr variables
-	var xhrOnLoad = new XMLHttpRequest();
-	var xhrAddPoint = new XMLHttpRequest();
+	//var xhrOnLoad = new XMLHttpRequest();
+	//var xhrAddPoint = new XMLHttpRequest();
 
 	//using response from get request, set chart contents
-	xhrOnLoad.onreadystatechange = function() {
-		console.log("1");
-				console.log("2");
-				var index = 0;
-				var socket = io();
-				socket.on('message', function(msg){
-					var battery = msg["battery"];
-					var steps = msg["steps"];
-					var temperature = msg["temperature"];
-					console.log("battery is:");
-					console.log(battery);
-					console.log("steps is:");
-					console.log(steps);
-					console.log("temperature is:");
-					console.log(temperature);
-				});
+	//xhrOnLoad.onreadystatechange = function() {
+	var socket = io();
+	socket.on('message', function(msg){
+		var battery = msg["battery"];
+		var steps = msg["steps"];
+		var temperature = msg["temperature"];
+		batVals.push(battery);
+		stepVals.push(steps);
+		tempVals.push(temperature);
+
+		if (batVals.length > chartLength) {
+			batVals.shift();
+		}
+
+		if (stepVals.length > chartLength) {
+			stepVals.shift();
+		}
+
+		if (tempVals.length > chartLength) {
+			tempVals.shift();
+		}
+
+		chart.render();
+		/*
+		console.log("battery is:");
+		console.log(battery);
+		console.log("steps is:");
+		console.log(steps);
+		console.log("temperature is:");
+		console.log(temperature);
+		*/
+	});
 
 	    	//fix labels
+	    	/*
 	    	var jsonAdjusted = this.responseText.replace(/timestamp/g, "x");
 
 	    	var batteryData = JSON.parse(jsonAdjusted.replace(/battery/g, "y")).slice(-chartLength);
@@ -125,14 +148,16 @@ window.onload = function () {
 
 			chart.render();
 			var intervalID = window.setInterval(getGraphData, 100);
+			*/
 
 
-	};
+	//};
 	//send get request for file data
-	xhrOnLoad.open("GET", '/data', true);
-	xhrOnLoad.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-	xhrOnLoad.send();
+	//xhrOnLoad.open("GET", '/data', true);
+	//xhrOnLoad.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+	//xhrOnLoad.send();
 	//repeat this function every second to update chart data
+	/*
 	function getGraphData() {
 		//console.log("updated!")
 		//operation to do when GET is called
@@ -165,10 +190,11 @@ window.onload = function () {
 			}
 		}
 		//send get request for serial line output
-		xhrAddPoint.open("GET", '/serialline', true);
-		xhrAddPoint.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-		xhrAddPoint.send();
+		//xhrAddPoint.open("GET", '/serialline', true);
+		//xhrAddPoint.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+		//xhrAddPoint.send();
 	}
+	*/
 	function toggleDataSeries(e){
 		if (typeof(e.dataSeries.visible) === "undefined" || e.dataSeries.visible) {
 			e.dataSeries.visible = false;
@@ -202,7 +228,7 @@ window.onload = function () {
 
 	</div>
 	<div class="form-group col-xs-1 col-xs-1">
-    <label for="code">Water Frequency</label><br />
+    <label for="code">Water Frequency (minutes)</label><br />
 		<div class="col">
 		<input id="water" type="checkbox" checked data-toggle="toggle" data-on="Enable" data-off="Disable" data-onstyle="success" data-offstyle="danger">
 		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<button type="button" class="btn btn-primary" onclick="waterSubmit()">Submit</button>
@@ -223,7 +249,7 @@ window.onload = function () {
 function find() {
 	console.log("Device Pinged!");
 	const Http = new XMLHttpRequest();
-	const url='http://192.168.1.142:3000/ping';
+	const url='http://192.168.1.102:3000/ping';
 	Http.open("POST", url);
 	Http.setRequestHeader("Content-Type", "application/json");
 	Http.send(JSON.stringify({"state": "1"}));
@@ -241,7 +267,7 @@ function waterSubmit() {
 	if (document.getElementById("example-number-input").value > 0) {
 		var timer = document.getElementById("example-number-input").value*60+5;
 		const Http = new XMLHttpRequest();
-		const url='http://192.168.1.142:3000/time';
+		const url='http://192.168.1.102:3000/time';
 		Http.open("POST", url);
 		Http.setRequestHeader("Content-Type", "application/json");
 		Http.send(JSON.stringify({"state":timer}));
@@ -257,7 +283,7 @@ $(document).ready(function() {
         if($(this).is(":checked")) {
             console.log("Steps ON");
 						const Http = new XMLHttpRequest();
-						const url='http://192.168.1.142:3000/vibration';
+						const url='http://192.168.1.102:3000/vibration';
 						Http.open("POST", url);
 						Http.setRequestHeader("Content-Type", "application/json");
 						Http.send(JSON.stringify({"state": "1"}));
@@ -267,7 +293,7 @@ $(document).ready(function() {
 				else {
 					console.log("Steps OFF");
 					const Http = new XMLHttpRequest();
-					const url='http://192.168.1.142:3000/vibration';
+					const url='http://192.168.1.102:3000/vibration';
 					Http.open("POST", url);
 					Http.setRequestHeader("Content-Type", "application/json");
 					Http.send(JSON.stringify({"state": "0"}));
@@ -279,7 +305,7 @@ $(document).ready(function() {
 				if($(this).is(":checked")) {
 						console.log("Battery ON");
 						const Http = new XMLHttpRequest();
-						const url='http://192.168.1.142:3000/battery';
+						const url='http://192.168.1.102:3000/battery';
 						Http.open("POST", url);
 						Http.setRequestHeader("Content-Type", "application/json");
 						Http.send(JSON.stringify({"state": "1"}));
@@ -289,7 +315,7 @@ $(document).ready(function() {
 				else {
 					console.log("Battery OFF");
 					const Http = new XMLHttpRequest();
-					const url='http://192.168.1.142:3000/battery';
+					const url='http://192.168.1.102:3000/battery';
 					Http.open("POST", url);
 					Http.setRequestHeader("Content-Type", "application/json");
 					Http.send(JSON.stringify({"state": "0"}));
@@ -301,7 +327,7 @@ $(document).ready(function() {
 				if($(this).is(":checked")) {
 						console.log("Temp ON");
 						const Http = new XMLHttpRequest();
-						const url='http://192.168.1.142:3000/temperature';
+						const url='http://192.168.1.102:3000/temperature';
 						Http.open("POST", url);
 						Http.setRequestHeader("Content-Type", "application/json");
 						Http.send(JSON.stringify({"state": "1"}));
@@ -312,7 +338,7 @@ $(document).ready(function() {
 				else {
 					console.log("Temp OFF");
 					const Http = new XMLHttpRequest();
-					const url='http://192.168.1.142:3000/temperature';
+					const url='http://192.168.1.102:3000/temperature';
 					Http.open("POST", url);
 					Http.setRequestHeader("Content-Type", "application/json");
 					Http.send(JSON.stringify({"state": "0"}));
@@ -324,7 +350,7 @@ $(document).ready(function() {
 				if($(this).is(":checked")) {
 						console.log("Water ON");
 						const Http = new XMLHttpRequest();
-						const url='http://192.168.1.142:3000/water';
+						const url='http://192.168.1.102:3000/water';
 						Http.open("POST", url);
 						Http.setRequestHeader("Content-Type", "application/json");
 						Http.send(JSON.stringify({"state": "1"}));
@@ -334,7 +360,7 @@ $(document).ready(function() {
 				else {
 					console.log("Water OFF");
 					const Http = new XMLHttpRequest();
-					const url='http://192.168.1.142:3000/water';
+					const url='http://192.168.1.102:3000/water';
 					Http.open("POST", url);
 					Http.setRequestHeader("Content-Type", "application/json");
 					Http.send(JSON.stringify({"state": "0"}));
