@@ -14,7 +14,7 @@ var urlencodedParser = bodyParser.urlencoded({ extended: false });
 
 // Port and IP of Host
 var PORT = 3333; //internal is 1236, external is 3333
-var HOST = "192.168.1.142"; //Kyle's Laptop is .102, Pi is .122
+var HOST = "192.168.1.102"; //Kyle's Laptop is .102, Pi is .122
 
 //Port and IP of Device
 var devPORT = 3333;
@@ -142,7 +142,7 @@ app.post('/time', jsonParser, function(req, res){
 // Send sensor readings to frontend
 server.on('message', function (message, remote) {
     io.emit('message', JSON.parse(message.toString()));
-    arr.push(JSON.parse(message.toString()));
+    arr.push(message.toString());
     console.log(JSON.parse(message.toString()));
     devPORT = remote.port;
     devHOST = remote.address;
