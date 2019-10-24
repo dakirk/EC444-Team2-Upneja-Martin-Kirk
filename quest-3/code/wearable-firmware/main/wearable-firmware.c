@@ -1,13 +1,6 @@
-//TODO:
-// 1. thermistor function - DONE
-// 2. set up water alarm (timer) - DONE
-// 3. make ping_led light an led and be asynchronous - DONE
-// 4. format socket output to be in JSON - DONE
-// 5. connect with Kyle's Node.js server - DONE
-// 6. reorganize for better readablity
+//Quest 3 firmware
+//by David Kirk, 2019-10-24
 
-
-//BASED ON: GPIO interrupt example code, I2C example code, UDP client example code
 
 #include <stdio.h>
 #include <string.h>
