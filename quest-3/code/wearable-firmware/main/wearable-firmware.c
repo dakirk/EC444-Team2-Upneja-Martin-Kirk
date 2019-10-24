@@ -586,6 +586,7 @@ static void output_task() {
 
     while(1) {
 
+        //read sensors
         temperature = thermistor_read();
         battery = battery_read();
 
@@ -601,12 +602,14 @@ static void output_task() {
 void app_main(void)
 {
 
+    //initializers
     gpio_interrupt_init();
     wifi_init_sta();
     udp_init();
     adc_init();
     alarm_init();
 
+    //parallel tasks
     xTaskCreate(udp_client_receive, "udp_client_receive", 4096, NULL, 5, NULL);
     xTaskCreate(output_task, "output_task", 4096, NULL, 4, NULL);
     xTaskCreate(timer_evt_task, "timer_evt_task", 2048, NULL, 3, NULL);
