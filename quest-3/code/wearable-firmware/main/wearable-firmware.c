@@ -123,7 +123,7 @@ static void udp_init();
 static void udp_client_receive();
 static void udp_client_send(char* message);
 static void IRAM_ATTR gpio_isr_handler(void* arg);
-static void gpio_task_example(void* arg);
+static void vibration_interrupt_task(void* arg);
 static void gpio_interrupt_init();
 void IRAM_ATTR timer_group0_isr(void *para);
 static void alarm_init();
@@ -312,7 +312,7 @@ static void IRAM_ATTR gpio_isr_handler(void* arg)
 }
 
 //GPIO interrupt task
-static void gpio_task_example(void* arg)
+static void vibration_interrupt_task(void* arg)
 {
     uint32_t io_num;
     for(;;) {
@@ -374,7 +374,7 @@ static void gpio_interrupt_init() {
 
 
     gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));                                //create a queue to handle gpio event from isr
-    xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);          //start gpio task
+    xTaskCreate(vibration_interrupt_task, "vibration_interrupt_task", 2048, NULL, 10, NULL);          //start gpio task
 
 
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);                                    //install gpio isr service
