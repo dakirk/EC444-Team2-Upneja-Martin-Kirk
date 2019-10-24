@@ -1,25 +1,29 @@
 # Quest 3
 Authors: Ayush Upneja, David Kirk, Kyle Martin
-
 2019-10-24
-
 ## Summary
-
-In this quest we wired three different devices to the ESP32: a battery, a thermistor, and a vibration sensor. The ESP32 collects data from these devices and sends them over WiFi to the Node backend through a UDP socket, while simultaneously receiving control signals from the Node backend through the same socket.
-
-Insert what happens in Node backend
-
-In the front end, we read all of the inputs and graphed them using ChartJS in an instantaneous updating. 
-
-
+In this quest, we built a wearable that tracks biometric data and communicates information to a central graphical hub.  We wired three different devices to the ESP32: a battery, a thermistor, and a vibration sensor.  We also wired two LEDs to the ESP32, where one blinked if pinged by the user from the front-end and another blinked to notify the user to drink water.  The battery level, temperature, and step count were sent to the node server through a UDP socket and then sent to the front-end through a TCP socket.  To control the device from the front-end, we used HTTP POST requests, which carried payload information that was sent back to the ESP32 through the UDP socket.  In the front end we plotted real-time sensor data using Canvas.js and embedded buttons, switches, and text fields to control the post requests.  
+The division of labor was as follows:
+- David wired the device and wrote the embedded C code to interface with it.
+- Kyle wrote the node.js server and set up port-forwarding.
+- Ayush wrote the front-end HTML file that plotted sensor data and interfaced with the user.
 
 ## Evaluation Criteria
 
+In this quest, we successfully demonstrated:
+
+- Sending data across a separate IP network to control a remote device through web client
+- Recieving data across a  separate IP network from remotee sensors into web client
+- Scheduling alerts via web client
+- Triggering immediate alerts
+- Displaying real-time biometrics
 
 
 ## Solution Design
+
 Hardware:
-David worked on the hardware. The ESP32 reads three different sensors (battery voltage, thermistor, and vibration sensor), and outputs to two LEDs. The firmware running on the ESP32 runs three parallel tasks: a UDP socket receiver, an output handler, and a timer handler. Additionally, there is a GPIO interrupt for reading, debouncing, and counting steps detected by the vibration sensor.
+
+The ESP32 reads three different sensors (battery voltage, thermistor, and vibration sensor), and outputs to two LEDs. The firmware running on the ESP32 runs three parallel tasks: a UDP socket receiver, an output handler, and a timer handler. Additionally, there is a GPIO interrupt for reading, debouncing, and counting steps detected by the vibration sensor.
 
 The socket receiver, udp_client_receive(), waits for a response from the target server (determined by the HOST_IP_ADDR and PORT macros). On receiving one, it parses and acts on the result. The first 5 characters of the response always form a binary string, with each bit corresponding to a feature. From left to right, they enable the vibration sensor, the thermistor, the battery reader, the "drink water" alarm, and the "find my device" LED. Any digits after that are interpreted as a new interval for the "drink water" alarm.
 
@@ -29,33 +33,19 @@ The timer task, timer_evt_task(), flashes the blue LED on and off for five secon
 
 The interrupt task, vibration_interrupt_task(), waits for a GPIO trigger from the vibration sensor. When it detects one, it attempts to count 20 sensor bounces in the next 50ms. If this happens, it increments the global steps counter.
 
-Back-end:
-Kyle worked on the back-end.
+Backend:
 
-Front-end:
-Ayush worked on the front-end. The front-end reads data from the socket when there is a change in step/battery/temperature.
+Frontend:
+
 There are bootstrap 5 toggle buttons to turn on/off the data reading. The on-toggle command is evaluated through jquery functions to take away the necessity of a submit button. The water alarm button cannot be set to a value other than a positive number and provides an alert when anything else is entered. There is a find my device button as well that lights up the red led when pressed.
 
 The data is read from the TCP Socket and is graphed into ChartJS at a rate of every 1/10 of a second. Toggling off the data collection also hides the relevant line.
 
-
 ## Sketches and Photos
 <center><img src="./images/example.png" width="70%" /></center>  
 <center> </center>
-
-
 ## Supporting Artifacts
 - [Link to repo]()
 - [Link to video demo]()
-
-
 ## References
-
 -----
-
-## Reminders
-
-- Video recording in landscape not to exceed 90s
-- Each team member appears in video
-- Make sure video permission is set accessible to the instructors
-- Repo is private
