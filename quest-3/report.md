@@ -15,7 +15,7 @@ The division of labor was as follows:
 In this quest, we successfully demonstrated:
 
 - Sending data across a separate IP network to control a remote device through web client
-- Recieving data across a  separate IP network from remotee sensors into web client
+- Recieving data across a  separate IP network from remote sensors into web client
 - Scheduling alerts via web client
 - Triggering immediate alerts
 - Displaying real-time biometrics
