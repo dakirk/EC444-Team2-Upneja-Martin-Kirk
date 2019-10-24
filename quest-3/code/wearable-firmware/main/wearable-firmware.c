@@ -2,8 +2,8 @@
 // 1. thermistor function - DONE
 // 2. set up water alarm (timer) - DONE
 // 3. make ping_led light an led and be asynchronous - DONE
-// 4. format socket output to be in JSON - DONE?
-// 5. connect with Kyle's Node.js server
+// 4. format socket output to be in JSON - DONE
+// 5. connect with Kyle's Node.js server - DONE
 // 6. reorganize for better readablity
 
 
@@ -68,9 +68,8 @@
 #define GPIO_INPUT_IO_1     5
 #define GPIO_INPUT_PIN_SEL  ((1ULL<<GPIO_INPUT_IO_0) | (1ULL<<GPIO_INPUT_IO_1))
 #define ESP_INTR_FLAG_DEFAULT 0
-#define MAX_DEBOUNCE_COUNT 35
+#define MAX_DEBOUNCE_COUNT 20
 #define DEBOUNCE_TIMEOUT 50
-
 int bounceCount;                                        //number of bounces
 int startTime;                                          //for recording elapsed time to determine if debouncer has timed out
 int interrupt_enabled = 1;                              //flag to disable interrupts during debouncing
@@ -78,22 +77,13 @@ int steps = 0;                                          //number of steps taken 
 static xQueueHandle gpio_evt_queue = NULL;              //event queue
 
 //adc setup
-#define DEFAULT_VREF    1100        //Use adc2_vref_to_gpio() to obtain a better estimate
-#define NO_OF_SAMPLES   64          //Multisampling
-
-//initializing attenuation variables
-static esp_adc_cal_characteristics_t *adc_chars;
+#define DEFAULT_VREF    1100                            //Use adc2_vref_to_gpio() to obtain a better estimate
+#define NO_OF_SAMPLES   64                              //Multisampling
+static esp_adc_cal_characteristics_t *adc_chars;        //initializing attenuation variables
 static const adc_atten_t atten = ADC_ATTEN_DB_11;
 static const adc_unit_t unit = ADC_UNIT_1;
-
-//bat_monitor adc
-static const adc_channel_t channel1 = ADC_CHANNEL_4;     //GPIO32 
-//thermistor_monitor adc
-static const adc_channel_t channel2 = ADC_CHANNEL_0;     //GPIO36
-//ultrasonic_monitor adc
-static const adc_channel_t channel3 = ADC_CHANNEL_6;     //GPIO34 
-//rangefinder_monitor adc
-static const adc_channel_t channel4 = ADC_CHANNEL_3;     //GPIO39
+static const adc_channel_t channel1 = ADC_CHANNEL_4;    //GPIO32 //bat_monitor adc
+static const adc_channel_t channel2 = ADC_CHANNEL_0;    //GPIO36 //thermistor_monitor adc
 
 //flags
 int vibration_enabled = 1;                              //vibration sensor interrupt enable flag
@@ -101,13 +91,9 @@ int thermistor_enabled = 1;                             //thermistor enable flag
 int battery_enabled = 1;                                //battery voltage enable flag
 int water_alarm_enabled = 1;                            //water alert enable flag
 
-//timer variables
-int water_interval = 3600;                              //time interval for the water alarm
-
 //socket variables
 #define HOST_IP_ADDR "192.168.1.101"                    //target server ip
 #define PORT 3333                                       //target server port
-
 char rx_buffer[128];
 char addr_str[128];
 int addr_family;
@@ -118,31 +104,43 @@ struct sockaddr_in dest_addr;                           //socket destination inf
 //wifi variables
 #define EXAMPLE_ESP_WIFI_SSID "Group_2"
 #define EXAMPLE_ESP_WIFI_PASS "smartkey"
-#define EXAMPLE_ESP_MAXIMUM_RETRY 10//CONFIG_ESP_MAXIMUM_RETRY
-
+#define EXAMPLE_ESP_MAXIMUM_RETRY 10                    //CONFIG_ESP_MAXIMUM_RETRY
 static EventGroupHandle_t s_wifi_event_group;           //FreeRTOS event group to signal when we are connected
 const int WIFI_CONNECTED_BIT = BIT0;                    //The event group allows multiple bits for each event, but we only care about one event - are we connected to the AP with an IP?
 static const char *TAG = "wifi station";
 static int s_retry_num = 0;
+xQueueHandle timer_queue;                               //Initialize queue handler for timer-based events
 
 //timer variables
-#define TIMER_DIVIDER         16    //  Hardware timer clock divider
+#define TIMER_DIVIDER         16                        //Hardware timer clock divider
 #define TIMER_SCALE           (unsigned long long int)(TIMER_BASE_CLK / TIMER_DIVIDER)  // to minutes
-#define TIMER_INTERVAL_SEC   (1800)    // Sample test interval for the first timer
-#define TEST_WITH_RELOAD      1     // Testing will be done with auto reload
+#define TIMER_INTERVAL_SEC   (1800)                     //Sample test interval for the first timer
+#define TEST_WITH_RELOAD      1                         //Testing will be done with auto reload
+int water_interval = 3600;                              //time interval for the water alarm
 
-// A simple structure to pass "events" to main task
-typedef struct {
-    int flag;     // flag for enabling stuff in main code
+typedef struct {                                        // A simple structure to pass "events" to main task
+    int flag;                                           // flag for enabling stuff in main code
 } timer_event_t;
 
-// Initialize queue handler for timer-based events
-xQueueHandle timer_queue;
 
 //function headers
-static void ping_led();
+static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
+void wifi_init_sta(void);
+static void udp_init();
+static void udp_client_receive();
+static void udp_client_send(char* message);
+static void IRAM_ATTR gpio_isr_handler(void* arg);
+static void gpio_task_example(void* arg);
+static void gpio_interrupt_init();
+void IRAM_ATTR timer_group0_isr(void *para);
+static void alarm_init();
+static void timer_evt_task(void *arg);
 static int battery_read();
 static int thermistor_read();
+static void print_char_val_type(esp_adc_cal_value_t val_type);
+static void adc_init();
+static void ping_led();
+static void output_task();
 
 
 ////WIFI SETUP/////////////////////////////////////////////////////////////////////
@@ -171,8 +169,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
 }
 
 //connect to wifi
-void wifi_init_sta(void)
-{
+void wifi_init_sta(void) {
 
     //Initialize NVS
     esp_err_t ret = nvs_flash_init();
@@ -185,7 +182,6 @@ void wifi_init_sta(void)
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
 
     s_wifi_event_group = xEventGroupCreate();
-
     tcpip_adapter_init();
 
     ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -202,6 +198,7 @@ void wifi_init_sta(void)
             .password = EXAMPLE_ESP_WIFI_PASS
         },
     };
+
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config) );
     ESP_ERROR_CHECK(esp_wifi_start() );
@@ -216,8 +213,6 @@ void wifi_init_sta(void)
 ////SOCKET SETUP/////////////////////////////////////////////////////////////////////
 
 static void udp_init() {
-
-    //tcpip_adapter_init();
 
     addr_family = AF_INET;
     ip_protocol = IPPROTO_IP;
@@ -255,10 +250,12 @@ static void udp_client_receive() {
             else {
                 rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
                 ESP_LOGI(TAG, "Received %d bytes from %s:", len, addr_str);
-                ESP_LOGI(TAG, "%s", rx_buffer);
+                //ESP_LOGI(TAG, "%s", rx_buffer);
+                printf("received string: %s\n", rx_buffer);
+
+
 
                 //expects string of format "10101 1234"
-
                 vibration_enabled = rx_buffer[0] - 48;
                 thermistor_enabled = rx_buffer[1] - 48;
                 battery_enabled = rx_buffer[2] - 48;
@@ -268,11 +265,12 @@ static void udp_client_receive() {
                     xTaskCreate(ping_led, "ping_led", 4096, NULL, 0, NULL);
                 }
 
+                //set water alarm interval to the input value
                 uint64_t newWaterTimerInterval = atoi(rx_buffer+5);
                 uint64_t alarm_value;
                 printf("number at the end: %lld", newWaterTimerInterval);
 
-
+                //protect against input less than 1 (breaks timer)
                 if (newWaterTimerInterval < 1) {
                     alarm_value = TIMER_SCALE;
                 } else {
@@ -284,6 +282,7 @@ static void udp_client_receive() {
 
         }
 
+        //shut down socket if anything failed
         if (sock != -1) {
             ESP_LOGE(TAG, "Shutting down socket and restarting...");
             shutdown(sock, 0);
@@ -300,20 +299,15 @@ static void udp_client_receive() {
 static void udp_client_send(char* message) {
 
     //assuming ip4v only
-    printf("attempting to send\n");
-
-    //int batteryVoltage = battery_read();
-
-
-    //printf("battery: %d\n", batteryVoltage);
     printf("%s\n", message);
 
+    //send message, and print error if anything failed
     int err = sendto(sock, message, strlen(message), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
     if (err < 0) {
         ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
-        //break;
     }
 }
+
 
 ////VIBRATION SENSOR SETUP/////////////////////////////////////////////////////////////////////
 
@@ -336,7 +330,6 @@ static void gpio_task_example(void* arg)
             //initialize debouncer
             if (bounceCount == 0) {
                 startTime = currTime;
-                //printf("Starting debouncer: %d\n", startTime);
                 bounceCount++;
             }
 
@@ -346,19 +339,14 @@ static void gpio_task_example(void* arg)
 
                 bounceCount = 0;
                 steps++;
-
-                //gpio_set_level(GPIO_OUTPUT_IO_0, 1);
                 //printf("GPIO[%d] intr, val: %d\n", io_num, gpio_get_level(io_num));
                 vTaskDelay(100/portTICK_RATE_MS);
-                //gpio_set_level(GPIO_OUTPUT_IO_0, 0);
-
                 interrupt_enabled = 1; //reenable interrupts
 
             }
 
             //if too much time has elapsed, reset debouncer
             else if (currTime - startTime > DEBOUNCE_TIMEOUT) {
-                //printf("timed out. resetting...");
                 bounceCount = 0;
             }
 
@@ -370,55 +358,42 @@ static void gpio_task_example(void* arg)
     }
 }
 
-
-static void gpio_setup() {
+static void gpio_interrupt_init() {
 
     gpio_config_t io_conf;
-    //disable interrupt
-    io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
-    //set as output mode
-    io_conf.mode = GPIO_MODE_OUTPUT;
-    //bit mask of the pins that you want to set,e.g.GPIO18/19
-    io_conf.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;
-    //disable pull-down mode
-    io_conf.pull_down_en = 0;
-    //disable pull-up mode
-    io_conf.pull_up_en = 0;
-    //configure GPIO with the given settings
+    
+    io_conf.intr_type = GPIO_PIN_INTR_DISABLE;                                          //disable interrupt
+    io_conf.mode = GPIO_MODE_OUTPUT;                                                    //set as output mode
+    io_conf.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;                                         //bit mask of the pins that you want to set,e.g.GPIO18/19
+    io_conf.pull_down_en = 0;                                                           //disable pull-down mode
+    io_conf.pull_up_en = 0;                                                             //disable pull-up mode
+
+    gpio_config(&io_conf);                                                              //configure GPIO with the given settings
+
+    io_conf.intr_type = GPIO_PIN_INTR_POSEDGE;                                          //interrupt of rising edge
+    io_conf.pin_bit_mask = GPIO_INPUT_PIN_SEL;                                          //bit mask of the pins, use GPIO4/5 here
+    io_conf.mode = GPIO_MODE_INPUT;                                                     //set as input mode    
+    io_conf.pull_up_en = 1;                                                             //enable pull-up mode
+
     gpio_config(&io_conf);
 
-    //interrupt of rising edge
-    io_conf.intr_type = GPIO_PIN_INTR_POSEDGE;
-    //bit mask of the pins, use GPIO4/5 here
-    io_conf.pin_bit_mask = GPIO_INPUT_PIN_SEL;
-    //set as input mode    
-    io_conf.mode = GPIO_MODE_INPUT;
-    //enable pull-up mode
-    io_conf.pull_up_en = 1;
-    gpio_config(&io_conf);
+    gpio_set_intr_type(GPIO_INPUT_IO_0, GPIO_INTR_ANYEDGE);                             //change gpio intrrupt type for one pin
 
-    //change gpio intrrupt type for one pin
-    gpio_set_intr_type(GPIO_INPUT_IO_0, GPIO_INTR_ANYEDGE);
 
-    //create a queue to handle gpio event from isr
-    gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));
-    //start gpio task
-    xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
+    gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));                                //create a queue to handle gpio event from isr
+    xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);          //start gpio task
 
-    //install gpio isr service
-    gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
-    //hook isr handler for specific gpio pin
-    gpio_isr_handler_add(GPIO_INPUT_IO_0, gpio_isr_handler, (void*) GPIO_INPUT_IO_0);
-    //hook isr handler for specific gpio pin
-    gpio_isr_handler_add(GPIO_INPUT_IO_1, gpio_isr_handler, (void*) GPIO_INPUT_IO_1);
 
-    //remove isr handler for gpio number.
-    gpio_isr_handler_remove(GPIO_INPUT_IO_0);
-    //hook isr handler for specific gpio pin again
-    gpio_isr_handler_add(GPIO_INPUT_IO_0, gpio_isr_handler, (void*) GPIO_INPUT_IO_0);
+    gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);                                    //install gpio isr service
+    gpio_isr_handler_add(GPIO_INPUT_IO_0, gpio_isr_handler, (void*) GPIO_INPUT_IO_0);   //hook isr handler for specific gpio pin
+    gpio_isr_handler_add(GPIO_INPUT_IO_1, gpio_isr_handler, (void*) GPIO_INPUT_IO_1);   //hook isr handler for specific gpio pin
+
+    gpio_isr_handler_remove(GPIO_INPUT_IO_0);                                           //remove isr handler for gpio number.
+    gpio_isr_handler_add(GPIO_INPUT_IO_0, gpio_isr_handler, (void*) GPIO_INPUT_IO_0);   //hook isr handler for specific gpio pin again
 
     bounceCount = 0;
 }
+
 
 ////WATER TIMER SETUP/////////////////////////////////////////////////////////////////////
 
@@ -429,14 +404,10 @@ void IRAM_ATTR timer_group0_isr(void *para) {
     timer_event_t evt;
     evt.flag = 1;
 
-    // Clear the interrupt, Timer 0 in group 0
-    TIMERG0.int_clr_timers.t0 = 1;
+    TIMERG0.int_clr_timers.t0 = 1;                               // Clear the interrupt, Timer 0 in group 0
+    TIMERG0.hw_timer[TIMER_0].config.alarm_en = TIMER_ALARM_EN;  // After the alarm triggers, we need to re-enable it to trigger it next time
+    xQueueSendFromISR(timer_queue, &evt, NULL);                  // Send the event data back to the main program task
 
-    // After the alarm triggers, we need to re-enable it to trigger it next time
-    TIMERG0.hw_timer[TIMER_0].config.alarm_en = TIMER_ALARM_EN;
-
-    // Send the event data back to the main program task
-    xQueueSendFromISR(timer_queue, &evt, NULL);
 }
 
 // Initialize timer 0 in group 0 for 1 sec alarm interval and auto reload
@@ -482,8 +453,8 @@ static void timer_evt_task(void *arg) {
 
         // Do something if triggered!
         if (evt.flag == 1 && water_alarm_enabled) {
-            //printf("Action!\n");
             
+            //flash blue light 5 times
             int i;
             for (i = 0; i < 5; i++) {
                 gpio_set_level(GPIO_OUTPUT_IO_0, 1);
@@ -495,8 +466,8 @@ static void timer_evt_task(void *arg) {
     }
 }
 
-////SENSOR READING SETUP/////////////////////////////////////////////////////////////////////
 
+////ANALOG SENSOR READING SETUP/////////////////////////////////////////////////////////////////////
 
 static int battery_read() {
 
@@ -539,20 +510,18 @@ static int thermistor_read() {
             }
         }
         adc_reading /= NO_OF_SAMPLES;
-        //Convert adc_reading to voltage in mV
-        uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
-        
-        //calculate resistance across thermistor using voltage divider formula
-        double resistance = (33000.0/((double)voltage/1000.0)) - 10000.0;
-        //convert resistance across thermistor to Kelvin (T0 = 298K, B = 3435, R0 = 10kohm)
-        double temperatureKelvin = -(1 / ((log(10000.0/resistance)/3435.0) - (1/298.0)));
-        //convert Kelvin to Celsius
-        return (temperatureKelvin - 273.15);
-    } else {
-        return -300; //impossible value in Celsius
-    }
 
-    
+        //convert raw input to a temperature
+        uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);              //Convert adc_reading to voltage in mV
+        double resistance = (33000.0/((double)voltage/1000.0)) - 10000.0;                   //calculate resistance across thermistor using voltage divider formula
+        double temperatureKelvin = -(1 / ((log(10000.0/resistance)/3435.0) - (1/298.0)));   //convert resistance across thermistor to Kelvin (T0 = 298K, B = 3435, R0 = 10kohm)
+        return (temperatureKelvin - 273.15);                                                //convert Kelvin to Celsius
+
+    } else {
+
+        return -300; //impossible value in Celsius
+
+    } 
     
 }
 
@@ -572,39 +541,27 @@ static void adc_init() {
     //Configure ADC channels for each sensor
     if (unit == ADC_UNIT_1) {
         adc1_config_width(ADC_WIDTH_BIT_12);
-        //battery
-        adc1_config_channel_atten(channel1, atten);
-        //thermistor
-        adc1_config_channel_atten(channel2, atten);
-        //ultrasonic
-        adc1_config_channel_atten(channel3, atten);
-        //rangefinder
-        adc1_config_channel_atten(channel4, atten);
+        
+        adc1_config_channel_atten(channel1, atten); //battery
+        adc1_config_channel_atten(channel2, atten); //thermistor
+
     } else {
-        //battery
-        adc2_config_channel_atten((adc2_channel_t)channel1, atten);
-        //thermistor
-        adc2_config_channel_atten((adc2_channel_t)channel2, atten);
-        //ultrasonic
-        adc2_config_channel_atten((adc2_channel_t)channel3, atten);
-        //rangefinder
-        adc2_config_channel_atten((adc2_channel_t)channel4, atten);
+        
+        adc2_config_channel_atten((adc2_channel_t)channel1, atten); //battery
+        adc2_config_channel_atten((adc2_channel_t)channel2, atten); //thermistor
+
     }
     
-    printf("checkpoint 2\n");
-
     //Characterize ADC
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
-
-    printf("checkpoint 3\n");
-
     esp_adc_cal_value_t val_type = esp_adc_cal_characterize(unit, atten, ADC_WIDTH_BIT_12, DEFAULT_VREF, adc_chars);
-
-    printf("checkpoint 4\n");
 
     print_char_val_type(val_type);
 
 }
+
+
+////OUTPUT LOOP/////////////////////////////////////////////////////////////////////
 
 //flashes LED independently of other tasks
 static void ping_led() {
@@ -621,40 +578,37 @@ static void ping_led() {
     vTaskDelete(NULL); //kill thread when finished
 }
 
-static void test_task() {
-    char dataStrBuf[100];
+static void output_task() {
 
-    int cnt = 0;
-    int temperature;
-    int battery;
+    int battery; //battery voltage reading
+    int temperature; //thermistor temperature reading
+    char jsonBuf[100]; //formatted JSON of data
+
     while(1) {
-        printf("cnt: %d\n", cnt++);
-        vTaskDelay(1000 / portTICK_RATE_MS);
 
         temperature = thermistor_read();
         battery = battery_read();
 
-        //itoa(steps, stepBuf, 10);
-        //itoa(temperature, tempBuf, 10);
-        sprintf(dataStrBuf, "{steps: %d, temperature: %d, battery: %d}", steps, temperature, battery);
+        //format data into JSON and send through UDP
+        sprintf(jsonBuf, "{\"steps\": %d, \"temperature\": %d, \"battery\": %d}", steps, temperature, battery);
+        udp_client_send(jsonBuf);
 
-        udp_client_send(dataStrBuf);
-        //gpio_set_level(GPIO_OUTPUT_IO_0, cnt % 2);
-        //gpio_set_level(GPIO_OUTPUT_IO_1, cnt % 2);
+        vTaskDelay(1000 / portTICK_RATE_MS);
+
     }
 }
 
 void app_main(void)
 {
 
-    gpio_setup();
+    gpio_interrupt_init();
     wifi_init_sta();
     udp_init();
     adc_init();
     alarm_init();
 
     xTaskCreate(udp_client_receive, "udp_client_receive", 4096, NULL, 5, NULL);
-    xTaskCreate(test_task, "test_task", 4096, NULL, 4, NULL);
+    xTaskCreate(output_task, "output_task", 4096, NULL, 4, NULL);
     xTaskCreate(timer_evt_task, "timer_evt_task", 2048, NULL, 3, NULL);
 
 }
