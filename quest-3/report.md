@@ -15,7 +15,7 @@ The division of labor was as follows:
 In this quest, we successfully demonstrated:
 
 - Sending data across a separate IP network to control a remote device through web client
-- Recieving data across a  separate IP network from remote sensors into web client
+- Receiving data across a  separate IP network from remote sensors into web client
 - Scheduling alerts via web client
 - Triggering immediate alerts
 - Displaying real-time biometrics
@@ -34,15 +34,15 @@ Sensor data is read from the TCP Socket and is graphed into Canvas.js every 1/10
 "state": 0
 }
 
-If sensor readings are turned back on, the state key is set to 1 in the JSON payload.  All post requests coming from the frontend carry a payload of this form, with the ony exception being the request that updates the water interval.  In this request, the state key could be set to any positive integer number of seconds.
+If sensor readings are turned back on, the state key is set to 1 in the JSON payload. All post requests coming from the frontend carry a payload of this form, with the only exception being the request that updates the water interval. In this request, the state key could be set to any positive integer number of seconds.
 
 ### Back-end
 
-Our node.js server handled HTTP post requests, sent sensor data to the front-end through TCP sockets, and received sensor data from the ESP32 through UDP sockets.  In the node file, called server.js, we defined a global state variable that initializes to "111101800".  The first four bits correspond to on/off switches for the vibration sensor, thermistor, battery monitor, and water alarm, respectively.  The 5th bit correponds to the device pinger.  The rest of the string is an integer number of seconds corresponding to how often the water alarm will go off.  
+Our node.js server handled HTTP post requests, sent sensor data to the front-end through TCP sockets, and received sensor data from the ESP32 through UDP sockets. In the node file, called server.js, we defined a global state variable that initializes to "111101800". The first four bits correspond to on/off switches for the vibration sensor, thermistor, battery monitor, and water alarm, respectively. The 5th bit corresponds to the device pinger. The rest of the string is an integer number of seconds corresponding to how often the water alarm will go off. 
 
-In each of the six post requests, we index the JSON payload to obtain the updated state.  Then, we convert the number to a string and update the global state variable.  For example, if the vibration switch is turned off, the new state will be "011101800".  In each post request, the updated state is sent to the ESP32 through the UDP socket.
+In each of the six post requests, we index the JSON payload to obtain the updated state. Then, we convert the number to a string and update the global state variable. For example, if the vibration switch is turned off, the new state will be "011101800". In each post request, the updated state is sent to the ESP32 through the UDP socket.
 
-The server was hosted on port 3000, and the UDP socket was connected through port 3333.  We port-forwarded port 3000 to port 2222 using DDNS.  To do so, we obtained a domain from No-IP.com.  Our domain name was ec444group2.hopto.org:2222.  
+The server was hosted on port 3000, and the UDP socket was connected through port 3333. We port-forwarded port 3000 to port 2222 using DDNS. To do so, we obtained a domain from No-IP.com. Our domain name was ec444group2.hopto.org:2222. 
 
 ### Embedded
 
