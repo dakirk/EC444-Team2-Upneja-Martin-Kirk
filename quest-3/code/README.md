@@ -1,4 +1,7 @@
 # Code Readme
 
-Brief explanation on how to navigate your code folder. For example, main consists of the entry function, and lib are where the resource libraries are located.
+Important files:
+- ./backend/index.html, Author: Ayush Upneja
+- ./backend/server.js, Author: Kyle Martin
+- ./wearable-firmware/main/wearable-firmware.c, Author: David Kirk
 
