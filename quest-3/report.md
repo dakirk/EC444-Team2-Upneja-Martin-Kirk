@@ -83,8 +83,21 @@ The battery voltage is being read from the USB voltage source by a 2/3 voltage d
 
 ## References
 
+Front-end:
+- https://canvasjs.com/html5-javascript-dynamic-chart/
+
+Back-end:
 - http://whizzer.bu.edu/briefs/design-patterns/dp-socketIO
 - https://github.com/BU-EC444/code-examples/tree/master/node-socketio
-- https://canvasjs.com/html5-javascript-dynamic-chart/
-- Investigative Question: http://iot-bits.com/ultra-low-power-design-esp32-10-tips/
+
+Embedded:
+- https://github.com/espressif/esp-idf/tree/master/examples/protocols/sockets/udp_client
+- http://whizzer.bu.edu/briefs/design-patterns/dp-sockets
+- https://github.com/espressif/esp-idf/tree/master/examples/wifi/getting_started/station
+- http://whizzer.bu.edu/briefs/design-patterns/dp-timer
+- https://github.com/espressif/esp-idf/tree/master/examples/peripherals/gpio
+- https://github.com/espressif/esp-idf/tree/master/examples/peripherals/adc
+
+Investigative Question: 
+- http://iot-bits.com/ultra-low-power-design-esp32-10-tips/
 -----
