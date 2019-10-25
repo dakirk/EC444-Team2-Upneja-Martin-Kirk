@@ -59,6 +59,7 @@ The interrupt task, vibration_interrupt_task(), waits for a GPIO trigger from th
 ### Wiring 
 
 ## Sketches and Photos
+![Image](./images/setup.png)
 
 ## Supporting Artifacts
 - Repo Link: https://github.com/BU-EC444/Team2-Upneja-Martin-Kirk/tree/master/quest-3
