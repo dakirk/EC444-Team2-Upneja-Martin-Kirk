@@ -60,6 +60,10 @@ The interrupt task, vibration_interrupt_task(), waits for a GPIO trigger from th
 
 ## Investigative Question
 ### What are steps you can take to make your device and system low power?
+- Scale down the rate at which the core is running
+- Avoid running multiple cores
+- Connect to WiFi only when necessary
+- Turn of peripherals when they are not being used
 
 ## Sketches and Photos
 ![Image](./images/setup.png)
@@ -73,4 +77,5 @@ The interrupt task, vibration_interrupt_task(), waits for a GPIO trigger from th
 - http://whizzer.bu.edu/briefs/design-patterns/dp-socketIO
 - https://github.com/BU-EC444/code-examples/tree/master/node-socketio
 - https://canvasjs.com/html5-javascript-dynamic-chart/
+- Investigative Question: http://iot-bits.com/ultra-low-power-design-esp32-10-tips/
 -----
