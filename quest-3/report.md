@@ -56,7 +56,16 @@ The timer task, timer_evt_task(), flashes the blue LED on and off for five secon
 
 The interrupt task, vibration_interrupt_task(), waits for a GPIO trigger from the vibration sensor. When it detects one, it attempts to count 20 sensor bounces in the next 50ms. If this happens, it increments the global steps counter.
 
-### Wiring 
+### Wiring
+
+The battery voltage is being read from the USB voltage source by a 2/3 voltage divider made of 10Kohm resistors. The thermistor is connected to a single 10Kohm resistor, and is read from between the thermistor and the resistor. The vibration sensor is read with a 10Kohm pull-up resistor. The red and blue LEDs are each in serial with a 220ohm resistor. The pin mapping is:
+- Vibration sensor:  A5
+- Thermistor:        A4
+- Battery voltage:   32
+- Blue LED:          MOSI
+- Red LED:           MISO
+
+![Wiring](./images/wiring.jpg)
 
 ## Investigative Question
 ### What are steps you can take to make your device and system low power?
