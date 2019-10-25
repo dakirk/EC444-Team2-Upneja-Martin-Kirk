@@ -58,6 +58,9 @@ The interrupt task, vibration_interrupt_task(), waits for a GPIO trigger from th
 
 ### Wiring 
 
+## Investigative Question
+### What are steps you can take to make your device and system low power?
+
 ## Sketches and Photos
 ![Image](./images/setup.png)
 
