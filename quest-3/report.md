@@ -64,5 +64,10 @@ The interrupt task, vibration_interrupt_task(), waits for a GPIO trigger from th
 ## Supporting Artifacts
 - Repo Link: https://github.com/BU-EC444/Team2-Upneja-Martin-Kirk/tree/master/quest-3
 - Demo Video: https://youtu.be/Iqs3mKGPSEw
+
 ## References
+
+- http://whizzer.bu.edu/briefs/design-patterns/dp-socketIO
+- https://github.com/BU-EC444/code-examples/tree/master/node-socketio
+- https://canvasjs.com/html5-javascript-dynamic-chart/
 -----
