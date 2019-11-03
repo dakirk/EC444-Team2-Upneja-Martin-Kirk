@@ -1,10 +1,12 @@
-Division of work:
+#Division of work:
 
-COMPLETED TASKS:
+##COMPLETED TASKS:
 * Drive control
 * Steering control
 * MicroLIDAR reading
 * Accelerometer reading
+
+##TASKS TO DO:
 
 Kyle:
 * PID control (steering/orientation, speed, stopping)
