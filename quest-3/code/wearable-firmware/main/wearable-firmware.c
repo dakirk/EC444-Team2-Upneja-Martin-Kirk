@@ -1,13 +1,6 @@
-//TODO:
-// 1. thermistor function - DONE
-// 2. set up water alarm (timer) - DONE
-// 3. make ping_led light an led and be asynchronous - DONE
-// 4. format socket output to be in JSON - DONE
-// 5. connect with Kyle's Node.js server - DONE
-// 6. reorganize for better readablity
+//Quest 3 firmware
+//by David Kirk, 2019-10-24
 
-
-//BASED ON: GPIO interrupt example code, I2C example code, UDP client example code
 
 #include <stdio.h>
 #include <string.h>
@@ -130,7 +123,7 @@ static void udp_init();
 static void udp_client_receive();
 static void udp_client_send(char* message);
 static void IRAM_ATTR gpio_isr_handler(void* arg);
-static void gpio_task_example(void* arg);
+static void vibration_interrupt_task(void* arg);
 static void gpio_interrupt_init();
 void IRAM_ATTR timer_group0_isr(void *para);
 static void alarm_init();
@@ -319,7 +312,7 @@ static void IRAM_ATTR gpio_isr_handler(void* arg)
 }
 
 //GPIO interrupt task
-static void gpio_task_example(void* arg)
+static void vibration_interrupt_task(void* arg)
 {
     uint32_t io_num;
     for(;;) {
@@ -381,7 +374,7 @@ static void gpio_interrupt_init() {
 
 
     gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));                                //create a queue to handle gpio event from isr
-    xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);          //start gpio task
+    xTaskCreate(vibration_interrupt_task, "vibration_interrupt_task", 2048, NULL, 10, NULL);          //start gpio task
 
 
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);                                    //install gpio isr service
@@ -586,6 +579,7 @@ static void output_task() {
 
     while(1) {
 
+        //read sensors
         temperature = thermistor_read();
         battery = battery_read();
 
@@ -593,7 +587,7 @@ static void output_task() {
         sprintf(jsonBuf, "{\"steps\": %d, \"temperature\": %d, \"battery\": %d}", steps, temperature, battery);
         udp_client_send(jsonBuf);
 
-        vTaskDelay(1000 / portTICK_RATE_MS);
+        vTaskDelay(100 / portTICK_RATE_MS);
 
     }
 }
@@ -601,12 +595,14 @@ static void output_task() {
 void app_main(void)
 {
 
+    //initializers
     gpio_interrupt_init();
     wifi_init_sta();
     udp_init();
     adc_init();
     alarm_init();
 
+    //parallel tasks
     xTaskCreate(udp_client_receive, "udp_client_receive", 4096, NULL, 5, NULL);
     xTaskCreate(output_task, "output_task", 4096, NULL, 4, NULL);
     xTaskCreate(timer_evt_task, "timer_evt_task", 2048, NULL, 3, NULL);
