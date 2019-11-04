@@ -11,9 +11,17 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_attr.h"
-
+#include "esp_system.h"
+#include "esp_log.h"
+#include "driver/uart.h"
+#include "string.h"
+#include "driver/gpio.h"
 #include "driver/mcpwm.h"
+#include "driver/i2c.h"
 #include "soc/mcpwm_periph.h"
+#include "./ADXL343.h"
+
+////DRIVING SETUP///////////////////////////////////////////////////////////////////
 
 //You can get these value from the datasheet of servo you use, in general pulse width varies between 1000 to 2000 mocrosecond
 #define DRIVE_MIN_PULSEWIDTH 900 //Minimum pulse width in microsecond
@@ -23,18 +31,102 @@
 #define STEERING_MAX_PULSEWIDTH 2100 //Maximum pulse width in microsecond
 #define STEERING_MAX_DEGREE 180 //Maximum angle in degree upto which servo can rotate
 
-#include "esp_system.h"
-#include "esp_log.h"
-#include "driver/uart.h"
-#include "string.h"
-#include "driver/gpio.h"
+////I2C SETUP///////////////////////////////////////////////////////////////////
 
+// Master I2C
+#define I2C_EXAMPLE_MASTER_SCL_IO          22   // gpio number for i2c clk
+#define I2C_EXAMPLE_MASTER_SDA_IO          23   // gpio number for i2c data
+#define I2C_EXAMPLE_MASTER_NUM             I2C_NUM_0  // i2c port
+#define I2C_EXAMPLE_MASTER_TX_BUF_DISABLE  0    // i2c master no buffer needed
+#define I2C_EXAMPLE_MASTER_RX_BUF_DISABLE  0    // i2c master no buffer needed
+#define I2C_EXAMPLE_MASTER_FREQ_HZ         100000     // i2c master clock freq
+#define WRITE_BIT                          I2C_MASTER_WRITE // i2c master write
+#define READ_BIT                           I2C_MASTER_READ  // i2c master read
+#define ACK_CHECK_EN                       true // i2c master will check ack
+#define ACK_CHECK_DIS                      false// i2c master will not check ack
+#define ACK_VAL                            0x00 // i2c ack value
+#define NACK_VAL                           0xFF // i2c nack value
+
+// ADXL343
+#define ACCEL_ADDR                         ADXL343_ADDRESS // 0x53
+
+// 14-Segment Display
+#define DISPLAY_ADDR                       0x70 // alphanumeric address
+#define OSC                                0x21 // oscillator cmd
+#define HT16K33_BLINK_DISPLAYON            0x01 // Display on cmd
+#define HT16K33_BLINK_OFF                  0    // Blink off cmd
+#define HT16K33_BLINK_CMD                  0x80 // Blink cmd
+#define HT16K33_CMD_BRIGHTNESS             0xE0 // Brightness cmd
+
+////UART SETUP///////////////////////////////////////////////////////////////////
 static const int RX_BUF_SIZE = 128;
 
 #define TXD_PIN (GPIO_NUM_17)
 #define RXD_PIN (GPIO_NUM_16)
 
-void init(void) {
+////I2C FUNCTIONS///////////////////////////////////////////////////////////////////
+
+// Function to initiate i2c -- note the MSB declaration!
+static void i2c_master_init(){
+    // Debug
+    printf("\n>> i2c Config\n");
+    int err;
+
+    // Port configuration
+    int i2c_master_port = I2C_EXAMPLE_MASTER_NUM;
+
+    /// Define I2C configurations
+    i2c_config_t conf;
+    conf.mode = I2C_MODE_MASTER;                              // Master mode
+    conf.sda_io_num = I2C_EXAMPLE_MASTER_SDA_IO;              // Default SDA pin
+    conf.sda_pullup_en = GPIO_PULLUP_ENABLE;                  // Internal pullup
+    conf.scl_io_num = I2C_EXAMPLE_MASTER_SCL_IO;              // Default SCL pin
+    conf.scl_pullup_en = GPIO_PULLUP_ENABLE;                  // Internal pullup
+    conf.master.clk_speed = I2C_EXAMPLE_MASTER_FREQ_HZ;       // CLK frequency
+    err = i2c_param_config(i2c_master_port, &conf);           // Configure
+    if (err == ESP_OK) {printf("- parameters: ok\n");}
+
+    // Install I2C driver
+    err = i2c_driver_install(i2c_master_port, conf.mode,
+                     I2C_EXAMPLE_MASTER_RX_BUF_DISABLE,
+                     I2C_EXAMPLE_MASTER_TX_BUF_DISABLE, 0);
+    if (err == ESP_OK) {printf("- initialized: yes\n");}
+
+    // Data in MSB mode
+    i2c_set_data_mode(i2c_master_port, I2C_DATA_MODE_MSB_FIRST, I2C_DATA_MODE_MSB_FIRST);
+}
+
+// Utility function to test for I2C device address -- not used in deploy
+int testConnection(uint8_t devAddr, int32_t timeout) {
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (devAddr << 1) | I2C_MASTER_WRITE, ACK_CHECK_EN);
+    i2c_master_stop(cmd);
+    int err = i2c_master_cmd_begin(I2C_EXAMPLE_MASTER_NUM, cmd, 1000 / portTICK_RATE_MS);
+    i2c_cmd_link_delete(cmd);
+    return err;
+}
+
+// Utility function to scan for i2c device
+static void i2c_scanner() {
+    int32_t scanTimeout = 1000;
+    printf("\n>> I2C scanning ..."  "\n");
+    uint8_t count = 0;
+    for (uint8_t i = 1; i < 127; i++) {
+        // printf("0x%X%s",i,"\n");
+        if (testConnection(i, scanTimeout) == ESP_OK) {
+            printf( "- Device found at address: 0x%X%s", i, "\n");
+            count++;
+        }
+    }
+    if (count == 0)
+        printf("- No I2C devices found!" "\n");
+    printf("\n");
+}
+
+////I2C FUNCTIONS///////////////////////////////////////////////////////////////////
+
+void uart_init(void) {
     const uart_config_t uart_config = {
         .baud_rate = 115200,
         .data_bits = UART_DATA_8_BITS,
@@ -48,7 +140,7 @@ void init(void) {
     uart_driver_install(UART_NUM_1, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
 }
 
-int sendData(const char* logName, const char* data)
+int uart_sendData(const char* logName, const char* data)
 {
     const int len = strlen(data);
     const int txBytes = uart_write_bytes(UART_NUM_1, data, len);
@@ -61,7 +153,7 @@ static void tx_task(void *arg)
     static const char *TX_TASK_TAG = "TX_TASK";
     esp_log_level_set(TX_TASK_TAG, ESP_LOG_INFO);
     while (1) {
-        sendData(TX_TASK_TAG, "Hello world");
+        uart_sendData(TX_TASK_TAG, "Hello world");
         vTaskDelay(2000 / portTICK_PERIOD_MS);
     }
 }
@@ -234,10 +326,15 @@ void steering_control(void *arg)
 void app_main(void)
 {
 
+    // I2C startup routine
+    i2c_master_init();
+    i2c_scanner();
+
+    // Drive & steering startup routine
     pwm_init();
     calibrateESC();
 
-    init();
+    uart_init();
     //xTaskCreate(rx_task, "uart_rx_task", 1024*2, NULL, configMAX_PRIORITIES, NULL);
     //xTaskCreate(tx_task, "uart_tx_task", 1024*2, NULL, configMAX_PRIORITIES-1, NULL);
 

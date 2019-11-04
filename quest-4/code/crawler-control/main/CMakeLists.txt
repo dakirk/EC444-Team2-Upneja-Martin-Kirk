@@ -1,2 +1,2 @@
-idf_component_register(SRCS "mcpwm_servo_control_example.c"
+idf_component_register(SRCS "crawler-control.c"
                     INCLUDE_DIRS ".")
