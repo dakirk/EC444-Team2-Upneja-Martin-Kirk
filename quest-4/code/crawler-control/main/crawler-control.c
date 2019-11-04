@@ -7,6 +7,8 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 #include <stdio.h>
+#include <math.h>
+#include <string.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -14,12 +16,13 @@
 #include "esp_system.h"
 #include "esp_log.h"
 #include "driver/uart.h"
-#include "string.h"
+
 #include "driver/gpio.h"
 #include "driver/mcpwm.h"
 #include "driver/i2c.h"
 #include "soc/mcpwm_periph.h"
 #include "./ADXL343.h"
+#include "displaychars.h"
 
 ////DRIVING SETUP///////////////////////////////////////////////////////////////////
 
@@ -51,7 +54,7 @@
 #define ACCEL_ADDR                         ADXL343_ADDRESS // 0x53
 
 // 14-Segment Display
-#define DISPLAY_ADDR                       0x70 // alphanumeric address
+#define ALPHA_ADDR                         0x70 // alphanumeric address
 #define OSC                                0x21 // oscillator cmd
 #define HT16K33_BLINK_DISPLAYON            0x01 // Display on cmd
 #define HT16K33_BLINK_OFF                  0    // Blink off cmd
@@ -124,7 +127,333 @@ static void i2c_scanner() {
     printf("\n");
 }
 
-////I2C FUNCTIONS///////////////////////////////////////////////////////////////////
+// ADXL343 Functions ///////////////////////////////////////////////////////////
+
+// Get Device ID
+int getAccelDeviceID(uint8_t *data) {
+  int ret;
+  i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+  i2c_master_start(cmd);
+  i2c_master_write_byte(cmd, ( ACCEL_ADDR << 1 ) | WRITE_BIT, ACK_CHECK_EN);
+  i2c_master_write_byte(cmd, ADXL343_REG_DEVID, ACK_CHECK_EN);
+  i2c_master_start(cmd);
+  i2c_master_write_byte(cmd, ( ACCEL_ADDR << 1 ) | READ_BIT, ACK_CHECK_EN);
+  i2c_master_read_byte(cmd, data, ACK_CHECK_DIS);
+  i2c_master_stop(cmd);
+  ret = i2c_master_cmd_begin(I2C_EXAMPLE_MASTER_NUM, cmd, 1000 / portTICK_RATE_MS);
+  i2c_cmd_link_delete(cmd);
+  return ret;
+}
+
+// Write one byte to register
+void writeAccelRegister(uint8_t reg, uint8_t data) {
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    //start command
+    i2c_master_start(cmd);
+    //ACCEL address followed by write bit
+    i2c_master_write_byte(cmd, ( ACCEL_ADDR << 1 ) | WRITE_BIT, ACK_CHECK_EN);
+    //register pointer sent
+    i2c_master_write_byte(cmd, reg, ACK_CHECK_EN);
+    //data sent
+    i2c_master_write_byte(cmd, data, ACK_CHECK_DIS);
+    //stop command
+    i2c_master_stop(cmd);
+    i2c_master_cmd_begin(I2C_EXAMPLE_MASTER_NUM, cmd, 1000 / portTICK_RATE_MS);
+    i2c_cmd_link_delete(cmd);
+}
+
+// Read register
+uint8_t readAccelRegister(uint8_t reg) {
+    uint8_t value;
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    //start command
+    i2c_master_start(cmd);
+    //slave followed by write bit
+    i2c_master_write_byte(cmd, ( ACCEL_ADDR << 1 ) | WRITE_BIT, ACK_CHECK_EN);
+    //register pointer sent
+    i2c_master_write_byte(cmd, reg, ACK_CHECK_EN);
+    //repeated start command
+    i2c_master_start(cmd);
+    //slave followed by read bit
+    i2c_master_write_byte(cmd, ( ACCEL_ADDR << 1 ) | READ_BIT, ACK_CHECK_EN);
+    //place data from register into bus
+    i2c_master_read_byte(cmd, &value, ACK_CHECK_DIS);
+    //stop command
+    i2c_master_stop(cmd);
+    i2c_master_cmd_begin(I2C_EXAMPLE_MASTER_NUM, cmd, 1000 / portTICK_RATE_MS);
+    i2c_cmd_link_delete(cmd);
+    return value;
+}
+
+// read 16 bits (2 bytes)
+int16_t readAccel16(uint8_t reg) {
+    uint8_t val1;
+    uint8_t val2;
+    val1 = readAccelRegister(reg);
+    if (reg == 41) {
+        val2 = 0;
+    } else {
+        val2 = readAccelRegister(reg+1);
+    }
+    return (((int16_t)val2 << 8) | val1);
+}
+
+void setRange(range_t range) {
+    // Red the data format register to preserve bits
+    uint8_t format = readAccelRegister(ADXL343_REG_DATA_FORMAT);
+
+    // Update the data rate
+    format &= ~0x0F;
+    format |= range;
+
+    // Make sure that the FULL-RES bit is enabled for range scaling
+    format |= 0x08;
+
+    // Write the register back to the IC
+    writeAccelRegister(ADXL343_REG_DATA_FORMAT, format);
+
+}
+
+range_t getRange(void) {
+    // Red the data format register to preserve bits
+    return (range_t)(readAccelRegister(ADXL343_REG_DATA_FORMAT) & 0x03);
+}
+
+dataRate_t getDataRate(void) {
+    return (dataRate_t)(readAccelRegister(ADXL343_REG_BW_RATE) & 0x0F);
+}
+
+static void accel_init() {
+
+  // Check for ADXL343
+  uint8_t deviceID;
+  getAccelDeviceID(&deviceID);
+  if (deviceID == 0xE5) {
+    printf("\n>> Found ADAXL343\n");
+  }
+  
+  // Disable interrupts
+  writeAccelRegister(ADXL343_REG_INT_ENABLE, 0);
+
+  // Set range
+  setRange(ADXL343_RANGE_2_G);
+  // Display range
+  printf  ("- Range:         +/- ");
+  switch(getRange()) {
+    case ADXL343_RANGE_16_G:
+      printf  ("16 ");
+      break;
+    case ADXL343_RANGE_8_G:
+      printf  ("8 ");
+      break;
+    case ADXL343_RANGE_4_G:
+      printf  ("4 ");
+      break;
+    case ADXL343_RANGE_2_G:
+      printf  ("2 ");
+      break;
+    default:
+      printf  ("?? ");
+      break;
+  }
+  printf(" g\n");
+
+  // Display data rate
+  printf ("- Data Rate:    ");
+  switch(getDataRate()) {
+    case ADXL343_DATARATE_3200_HZ:
+      printf  ("3200 ");
+      break;
+    case ADXL343_DATARATE_1600_HZ:
+      printf  ("1600 ");
+      break;
+    case ADXL343_DATARATE_800_HZ:
+      printf  ("800 ");
+      break;
+    case ADXL343_DATARATE_400_HZ:
+      printf  ("400 ");
+      break;
+    case ADXL343_DATARATE_200_HZ:
+      printf  ("200 ");
+      break;
+    case ADXL343_DATARATE_100_HZ:
+      printf  ("100 ");
+      break;
+    case ADXL343_DATARATE_50_HZ:
+      printf  ("50 ");
+      break;
+    case ADXL343_DATARATE_25_HZ:
+      printf  ("25 ");
+      break;
+    case ADXL343_DATARATE_12_5_HZ:
+      printf  ("12.5 ");
+      break;
+    case ADXL343_DATARATE_6_25HZ:
+      printf  ("6.25 ");
+      break;
+    case ADXL343_DATARATE_3_13_HZ:
+      printf  ("3.13 ");
+      break;
+    case ADXL343_DATARATE_1_56_HZ:
+      printf  ("1.56 ");
+      break;
+    case ADXL343_DATARATE_0_78_HZ:
+      printf  ("0.78 ");
+      break;
+    case ADXL343_DATARATE_0_39_HZ:
+      printf  ("0.39 ");
+      break;
+    case ADXL343_DATARATE_0_20_HZ:
+      printf  ("0.20 ");
+      break;
+    case ADXL343_DATARATE_0_10_HZ:
+      printf  ("0.10 ");
+      break;
+    default:
+      printf  ("???? ");
+      break;
+  }
+  printf(" Hz\n\n");
+
+  // Enable measurements
+  writeAccelRegister(ADXL343_REG_POWER_CTL, 0x08);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+// function to get acceleration
+void getAccel(float * xp, float *yp, float *zp) {
+    *xp = readAccel16(ADXL343_REG_DATAX0) * ADXL343_MG2G_MULTIPLIER * SENSORS_GRAVITY_STANDARD;
+    *yp = readAccel16(ADXL343_REG_DATAY0) * ADXL343_MG2G_MULTIPLIER * SENSORS_GRAVITY_STANDARD;
+    *zp = readAccel16(ADXL343_REG_DATAZ0) * ADXL343_MG2G_MULTIPLIER * SENSORS_GRAVITY_STANDARD;
+    printf("X: %.2f \t Y: %.2f \t Z: %.2f\n", *xp, *yp, *zp);
+}
+
+// function to print roll and pitch
+void calcRP(float x, float y, float z){
+    float roll = atan2(y , z) * 57.3;
+    float pitch = atan2((-1*x) , sqrt(y*y + z*z)) * 57.3;
+    printf("roll: %.2f \t pitch: %.2f \n", roll, pitch);
+}
+
+// Task to continuously poll acceleration and calculate roll and pitch
+static void test_adxl343() {
+    printf("\n>> Polling ADAXL343\n");
+    while (1) {
+        float xVal, yVal, zVal;
+        getAccel(&xVal, &yVal, &zVal);
+        calcRP(xVal, yVal, zVal);
+        vTaskDelay(500 / portTICK_RATE_MS);
+    }
+}
+
+// Alphanumeric Functions //////////////////////////////////////////////////////
+
+// Turn on oscillator for alpha display
+int alpha_oscillator() {
+    int ret;
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, ( ALPHA_ADDR << 1 ) | WRITE_BIT, ACK_CHECK_EN);
+    i2c_master_write_byte(cmd, OSC, ACK_CHECK_EN);
+    i2c_master_stop(cmd);
+    ret = i2c_master_cmd_begin(I2C_EXAMPLE_MASTER_NUM, cmd, 1000 / portTICK_RATE_MS);
+    i2c_cmd_link_delete(cmd);
+    vTaskDelay(200 / portTICK_RATE_MS);
+    return ret;
+}
+
+// Set blink rate to off
+int no_blink() {
+    int ret;
+    i2c_cmd_handle_t cmd2 = i2c_cmd_link_create();
+    i2c_master_start(cmd2);
+    i2c_master_write_byte(cmd2, ( ALPHA_ADDR << 1 ) | WRITE_BIT, ACK_CHECK_EN);
+    i2c_master_write_byte(cmd2, HT16K33_BLINK_CMD | HT16K33_BLINK_DISPLAYON | (HT16K33_BLINK_OFF << 1), ACK_CHECK_EN);
+    i2c_master_stop(cmd2);
+    ret = i2c_master_cmd_begin(I2C_EXAMPLE_MASTER_NUM, cmd2, 1000 / portTICK_RATE_MS);
+    i2c_cmd_link_delete(cmd2);
+    vTaskDelay(200 / portTICK_RATE_MS);
+    return ret;
+}
+
+// Set Brightness
+int set_brightness_max(uint8_t val) {
+    int ret;
+    i2c_cmd_handle_t cmd3 = i2c_cmd_link_create();
+    i2c_master_start(cmd3);
+    i2c_master_write_byte(cmd3, ( ALPHA_ADDR << 1 ) | WRITE_BIT, ACK_CHECK_EN);
+    i2c_master_write_byte(cmd3, HT16K33_CMD_BRIGHTNESS | val, ACK_CHECK_EN);
+    i2c_master_stop(cmd3);
+    ret = i2c_master_cmd_begin(I2C_EXAMPLE_MASTER_NUM, cmd3, 1000 / portTICK_RATE_MS);
+    i2c_cmd_link_delete(cmd3);
+    vTaskDelay(200 / portTICK_RATE_MS);
+    return ret;
+}
+
+static void alpha_init() {
+    // Debug
+    int ret;
+    printf(">> Test Alphanumeric Display: \n");
+
+    // Set up routines
+    // Turn on alpha oscillator
+    ret = alpha_oscillator();
+    if(ret == ESP_OK) {printf("- oscillator: ok \n");}
+    // Set display blink off
+    ret = no_blink();
+    if(ret == ESP_OK) {printf("- blink: off \n");}
+    ret = set_brightness_max(0xF);
+    if(ret == ESP_OK) {printf("- brightness: max \n");}
+
+}
+
+void alpha_write(double number) {
+    int i, ret;
+
+    uint16_t displaybuffer[8];
+    char strIn[317];
+
+    //itoa(number, strIn, 10);
+    sprintf(strIn, "%04f", number);
+    //displaybuffer[0] = alphafonttable['a']; //0b0101001000000001;  // T.
+    //displaybuffer[1] = alphafonttable['b']; //0b0101001000001111;  // D.
+    //displaybuffer[2] = alphafonttable['c']; //0b0100000000111001;  // C.
+    //displaybuffer[3] = alphafonttable['d']; //0b0100000000111000;  // L.
+    for (i = 0; i < 4; ++i) displaybuffer[i] = alphafonttable[' '];
+
+    //for (i = 0; i < 4; ++i) displaybuffer[i] = alphafonttable[(int)strIn[i]];
+    i = 0;
+    while (i < 4 && strIn[i] != '\0') {
+        displaybuffer[i] = alphafonttable[(int)strIn[i]];
+        ++i;
+    }
+
+    //strIn = "";
+
+    // Send commands characters to display over I2C
+    i2c_cmd_handle_t cmd4 = i2c_cmd_link_create();
+    i2c_master_start(cmd4);
+    i2c_master_write_byte(cmd4, ( ALPHA_ADDR << 1 ) | WRITE_BIT, ACK_CHECK_EN);
+    i2c_master_write_byte(cmd4, (uint8_t)0x00, ACK_CHECK_EN);
+    for (uint8_t i=0; i<8; i++) {
+        i2c_master_write_byte(cmd4, displaybuffer[i] & 0xFF, ACK_CHECK_EN);
+        i2c_master_write_byte(cmd4, displaybuffer[i] >> 8, ACK_CHECK_EN);
+    }
+    i2c_master_stop(cmd4);
+    ret = i2c_master_cmd_begin(I2C_EXAMPLE_MASTER_NUM, cmd4, 1000 / portTICK_RATE_MS);
+    i2c_cmd_link_delete(cmd4);
+
+    //for (int i = 0; i < 8; i++) {
+    //    printf("%04x\n", displaybuffer[i]);
+    //}
+
+    if(ret == ESP_OK) {
+    //printf("- wrote: T.D.C.L. \n\n");
+    }
+}
+
+////UART FUNCTIONS///////////////////////////////////////////////////////////////////
 
 void uart_init(void) {
     const uart_config_t uart_config = {
@@ -316,6 +645,12 @@ void steering_control(void *arg)
             angle = steering_per_degree_init(count);
             //printf("pulse width: %dus\n", angle);
             mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
+
+            float xVal, yVal, zVal;
+            getAccel(&xVal, &yVal, &zVal);
+            alpha_write(fabs(xVal));
+
+
             vTaskDelay(100/portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
         //}
 
@@ -329,6 +664,8 @@ void app_main(void)
     // I2C startup routine
     i2c_master_init();
     i2c_scanner();
+    accel_init();
+    alpha_init();
 
     // Drive & steering startup routine
     pwm_init();
