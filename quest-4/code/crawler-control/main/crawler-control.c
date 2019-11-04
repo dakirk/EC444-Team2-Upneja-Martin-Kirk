@@ -67,6 +67,8 @@ static const int RX_BUF_SIZE = 128;
 #define TXD_PIN (GPIO_NUM_17)
 #define RXD_PIN (GPIO_NUM_16)
 
+double speed = 0.0;
+
 ////I2C FUNCTIONS///////////////////////////////////////////////////////////////////
 
 // Function to initiate i2c -- note the MSB declaration!
@@ -321,7 +323,7 @@ static void accel_init() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// function to get acceleration
+// function to get acceleration - NOT THREAD SAFE
 void getAccel(float * xp, float *yp, float *zp) {
     *xp = readAccel16(ADXL343_REG_DATAX0) * ADXL343_MG2G_MULTIPLIER * SENSORS_GRAVITY_STANDARD;
     *yp = readAccel16(ADXL343_REG_DATAY0) * ADXL343_MG2G_MULTIPLIER * SENSORS_GRAVITY_STANDARD;
@@ -336,6 +338,7 @@ void calcRP(float x, float y, float z){
     printf("roll: %.2f \t pitch: %.2f \n", roll, pitch);
 }
 
+/*
 // Task to continuously poll acceleration and calculate roll and pitch
 static void test_adxl343() {
     printf("\n>> Polling ADAXL343\n");
@@ -345,7 +348,7 @@ static void test_adxl343() {
         calcRP(xVal, yVal, zVal);
         vTaskDelay(500 / portTICK_RATE_MS);
     }
-}
+}*/
 
 // Alphanumeric Functions //////////////////////////////////////////////////////
 
@@ -408,6 +411,7 @@ static void alpha_init() {
 
 }
 
+//NOT THREAD SAFE
 void alpha_write(double number) {
     int i, ret;
 
