@@ -68,6 +68,7 @@ static const int RX_BUF_SIZE = 128;
 #define RXD_PIN (GPIO_NUM_16)
 
 double speed = 0.0;
+float base_x_acceleration;
 
 ////I2C FUNCTIONS///////////////////////////////////////////////////////////////////
 
@@ -616,11 +617,11 @@ void drive_control(void *arg)
         //    printf("Angle of rotation: %d\n", count);
         //    angle = drive_per_degree_init(count);
         //    printf("pulse width: %dus\n", angle);
-        mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 1100);
+        mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 1270);
         //vTaskDelay(100/portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
 
         int avgDist = rx_task();
-        //printf("dist: %d\n", avgDist);
+        printf("dist: %d\n", avgDist);
 
         //if (avgDist < 90) {
         //    break;
@@ -652,7 +653,12 @@ void steering_control(void *arg)
 
             float xVal, yVal, zVal;
             getAccel(&xVal, &yVal, &zVal);
-            alpha_write(fabs(xVal));
+
+            speed += ((xVal-base_x_acceleration) / 10);
+
+            printf("%f\n", base_x_acceleration);
+
+            alpha_write(fabs(speed));
 
 
             vTaskDelay(100/portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
@@ -671,9 +677,13 @@ void app_main(void)
     accel_init();
     alpha_init();
 
+    double dummyY, dummyZ;
+
     // Drive & steering startup routine
     pwm_init();
     calibrateESC();
+
+    getAccel(&base_x_acceleration, &dummyY, &dummyZ);
 
     uart_init();
     //xTaskCreate(rx_task, "uart_rx_task", 1024*2, NULL, configMAX_PRIORITIES, NULL);
