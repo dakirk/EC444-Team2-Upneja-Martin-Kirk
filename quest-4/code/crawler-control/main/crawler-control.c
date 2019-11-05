@@ -85,8 +85,10 @@ xQueueHandle timer_queue;
 ////UART SETUP///////////////////////////////////////////////////////////////////
 static const int RX_BUF_SIZE = 128;
 
-#define TXD_PIN (GPIO_NUM_17)
-#define RXD_PIN (GPIO_NUM_16)
+#define TXD_PIN_FRONT (GPIO_NUM_17)
+#define RXD_PIN_FRONT (GPIO_NUM_16)
+#define TXD_PIN_SIDE  (GPIO_NUM_4)
+#define RXD_PIN_SIDE  (GPIO_NUM_36)
 
 double speed = 0.0;
 float base_x_acceleration;
@@ -492,15 +494,26 @@ void uart_init(void) {
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
     };
     uart_param_config(UART_NUM_1, &uart_config);
-    uart_set_pin(UART_NUM_1, TXD_PIN, RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    uart_param_config(UART_NUM_2, &uart_config);
+    uart_set_pin(UART_NUM_1, TXD_PIN_FRONT, RXD_PIN_FRONT, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    uart_set_pin(UART_NUM_2, TXD_PIN_SIDE, RXD_PIN_SIDE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     // We won't use a buffer for sending data.
     uart_driver_install(UART_NUM_1, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
+    uart_driver_install(UART_NUM_2, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
 }
 
-int uart_sendData(const char* logName, const char* data)
+int uart_sendData_front(const char* logName, const char* data)
 {
     const int len = strlen(data);
     const int txBytes = uart_write_bytes(UART_NUM_1, data, len);
+    ESP_LOGI(logName, "Wrote %d bytes", txBytes);
+    return txBytes;
+}
+
+int uart_sendData_side(const char* logName, const char* data)
+{
+    const int len = strlen(data);
+    const int txBytes = uart_write_bytes(UART_NUM_2, data, len);
     ESP_LOGI(logName, "Wrote %d bytes", txBytes);
     return txBytes;
 }
@@ -510,12 +523,12 @@ static void tx_task(void *arg)
     static const char *TX_TASK_TAG = "TX_TASK";
     esp_log_level_set(TX_TASK_TAG, ESP_LOG_INFO);
     while (1) {
-        uart_sendData(TX_TASK_TAG, "Hello world");
+        uart_sendData_front(TX_TASK_TAG, "Hello world");
         vTaskDelay(2000 / portTICK_PERIOD_MS);
     }
 }
 
-int rx_task()
+int rx_task_front()
 {
     static const char *RX_TASK_TAG = "RX_TASK";
     esp_log_level_set(RX_TASK_TAG, ESP_LOG_INFO);
@@ -525,6 +538,54 @@ int rx_task()
 
     //while (1) {
         const int rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZE, 100 / portTICK_RATE_MS);
+        if (rxBytes > 0) {
+            data[rxBytes] = 0;
+            //ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
+            //ESP_LOG_BUFFER_HEXDUMP(RX_TASK_TAG, data, rxBytes, ESP_LOG_INFO);
+            //printf("%s\n", data);
+            //ESP_LOGI("test: ", "result: %s\n", data);
+            int i;
+            int distCounter = 0;
+
+            for (i = 0; i < rxBytes; i++) {
+                if (data[i] == 0x59 && data[i+1] == 0x59) {
+                    break;
+                }
+            }
+
+            for (i+=2; i < rxBytes; i+= 9) {
+                //ESP_LOGI(RX_TASK_TAG, "Lower byte %d: %x", i, data[i]);
+                //ESP_LOGI(RX_TASK_TAG, "Higher byte %d: %x", i, data[i+1]);
+                distConcat = (((uint16_t)data[i+1] << 8) | data[i]);
+                avgDist += distConcat;
+                distCounter++;
+
+                //ESP_LOGI(RX_TASK_TAG, "Distance: %d", distConcat);
+            }
+
+            avgDist /= distCounter;
+
+            ESP_LOGI(RX_TASK_TAG, "Distance: %d", avgDist);
+
+        }
+
+        //vTaskDelay(100/portTICK_RATE_MS);
+    //}
+    free(data);
+
+    return distConcat;
+}
+
+int rx_task_side()
+{
+    static const char *RX_TASK_TAG = "RX_TASK";
+    esp_log_level_set(RX_TASK_TAG, ESP_LOG_INFO);
+    uint8_t* data = (uint8_t*) malloc(RX_BUF_SIZE+1);
+    int avgDist = 0;
+    int distConcat = 0;
+
+    //while (1) {
+        const int rxBytes = uart_read_bytes(UART_NUM_2, data, RX_BUF_SIZE, 100 / portTICK_RATE_MS);
         if (rxBytes > 0) {
             data[rxBytes] = 0;
             //ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
@@ -645,8 +706,9 @@ void drive_control(void *arg)
 
         //vTaskDelay(100/portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
 
-        int avgDist = rx_task();
-        printf("dist: %d\n", avgDist);
+        int avgDistFront = rx_task_front();
+        int avgDistSide = rx_task_side();
+        printf("Front dist: %d; Side dist: %d\n", avgDistFront, avgDistSide);
 
         //if (avgDist < 90) {
         //    break;
@@ -681,7 +743,7 @@ void steering_control(void *arg)
 
             speed += ((xVal-base_x_acceleration) / 10);
 
-            printf("%f\n", base_x_acceleration);
+            //printf("%f\n", base_x_acceleration);
 
             alpha_write(fabs(speed));
 
@@ -703,6 +765,7 @@ void pid_speed() {
     double kp = 0.5;
     double ki = 0.5;
     double kd = 0.5;
+    double output;
 
     error = setpoint - speed;
     integral = integral + error * dt;
@@ -721,6 +784,7 @@ void pid_steering() {
     double kp = 0.5;
     double ki = 0.5;
     double kd = 0.5;
+    double output;
 
     error = setpoint - speed;
     integral = integral + error * dt;
@@ -825,7 +889,7 @@ static void timer_example_evt_task(void *arg)
         timer_event_t evt;
         xQueueReceive(timer_queue, &evt, portMAX_DELAY);
         pid_speed();
-        pid_steer();
+        pid_steering();
     }
 }
 
