@@ -140,6 +140,10 @@ static const int RX_BUF_SIZE = 128;
 
 float base_x_acceleration;
 
+
+void pid_speed();
+void pid_steering();
+
 ////PCNT FUNCTIONS///////////////////////////////////////////////////////////////////
 
 /* Decode what PCNT's unit originated an interrupt
@@ -224,7 +228,7 @@ static void pcnt_example_init(void)
     pcnt_counter_resume(PCNT_TEST_UNIT);
 }
 
-static int pcnt_read() {
+static int pcnt_read(int delay) {
     
     pcnt_example_init();
 
@@ -235,7 +239,7 @@ static int pcnt_read() {
         /* Wait for the event information passed from PCNT's interrupt handler.
          * Once received, decode the event type and print it on the serial monitor.
          */
-    res = xQueueReceive(pcnt_evt_queue, &evt, 500 / portTICK_PERIOD_MS);
+    res = xQueueReceive(pcnt_evt_queue, &evt, delay / portTICK_PERIOD_MS);
     if (res == pdTRUE) {
         pcnt_get_counter_value(PCNT_TEST_UNIT, &count);
         printf("Event PCNT unit[%d]; cnt: %d\n", evt.unit, count);
@@ -665,7 +669,15 @@ void drive_control(void *arg)
         //vTaskDelay(100/portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
 
         int avgDistFront = rx_task_front();
-        int avgDistSide = rx_task_side();
+
+        blackStripeCount = pcnt_read(500); //.5s delay to read
+        speed = (((double)blackStripeCount / 6.0) * 0.598) / .5; //convert to m/s
+        alpha_write(speed);
+
+
+        pid_speed();
+        pid_steering();
+
         //printf("Front dist: %d; Side dist: %d\n", avgDistFront, avgDistSide);
 
         //if (avgDist < 90) {
@@ -693,6 +705,9 @@ void steering_control(void *arg)
         //for (count = 0; count < STEERING_MAX_DEGREE; count++) {
             //printf("Angle of rotation: %d\n", count);
             angle = steering_per_degree_init(angle_duty);
+
+            int avgDistSide = rx_task_side();
+
             //printf("pulse width: %dus\n", angle);
             mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
 
@@ -847,18 +862,7 @@ static void timer_example_evt_task(void *arg)
         timer_event_t evt;
         xQueueReceive(timer_queue, &evt, portMAX_DELAY);
 
-        if (timeCounter >= 500) {
-            blackStripeCount = pcnt_read();
-            timeCounter = 0;
-            speed = (((double)blackStripeCount / 6.0) * 0.598) / .5; //convert to m/s
-            alpha_write(speed);
-        } else {
-            //every ms
-            timeCounter++;
-        }
 
-        pid_speed();
-        pid_steering();
     }
 }
 
