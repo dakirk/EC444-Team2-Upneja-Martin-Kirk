@@ -6,28 +6,49 @@
    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
    CONDITIONS OF ANY KIND, either express or implied.
 */
+
+//stdlib headers
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
 
+//freeRTOS headers
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_types.h"
+#include "freertos/event_groups.h"
 #include "freertos/queue.h"
-#include "esp_attr.h"
-#include "esp_system.h"
-#include "esp_log.h"
-#include "driver/uart.h"
 
+//drivers
+#include "driver/uart.h"
 #include "driver/gpio.h"
 #include "driver/mcpwm.h"
 #include "driver/i2c.h"
-#include "soc/mcpwm_periph.h"
-#include "./ADXL343.h"
-#include "displaychars.h"
 #include "driver/periph_ctrl.h"
 #include "driver/timer.h"
 #include "driver/pcnt.h"
+
+//system headers
+#include "esp_types.h"
+#include "esp_attr.h"
+#include "esp_system.h"
+#include "esp_log.h"
+#include "esp_wifi.h"
+#include "esp_event.h"
+
+//motor control
+#include "soc/mcpwm_periph.h"
+
+//networking
+#include "nvs_flash.h"
+#include "tcpip_adapter.h"
+#include "lwip/err.h"
+#include "lwip/sockets.h"
+#include "lwip/sys.h"
+#include <lwip/netdb.h>
+
+//custom headers
+#include "./ADXL343.h"
+#include "displaychars.h"
 
 // PID Init ////////////////////////////////////////////////////////////////////////
 
@@ -140,9 +161,189 @@ static const int RX_BUF_SIZE = 128;
 
 float base_x_acceleration;
 
+////WIFI & SOCKET SETUP///////////////////////////////////////////////////////////////////
 
+//socket variables
+#define HOST_IP_ADDR "192.168.1.101"                    //target server ip
+#define PORT 3333                                       //target server port
+char rx_buffer[128];
+char addr_str[128];
+int addr_family;
+int ip_protocol;
+int sock;                                               //socket id?
+struct sockaddr_in dest_addr;                           //socket destination info
+
+//wifi variables
+#define EXAMPLE_ESP_WIFI_SSID "Group_2"
+#define EXAMPLE_ESP_WIFI_PASS "smartkey"
+#define EXAMPLE_ESP_MAXIMUM_RETRY 10                    //CONFIG_ESP_MAXIMUM_RETRY
+static EventGroupHandle_t s_wifi_event_group;           //FreeRTOS event group to signal when we are connected
+const int WIFI_CONNECTED_BIT = BIT0;                    //The event group allows multiple bits for each event, but we only care about one event - are we connected to the AP with an IP?
+static const char *TAG = "wifi station";
+static int s_retry_num = 0;
+
+bool running = false;
+
+//function headers
 void pid_speed();
 void pid_steering();
+
+////WIFI SETUP/////////////////////////////////////////////////////////////////////
+
+//wifi event handler
+static void event_handler(void* arg, esp_event_base_t event_base, 
+                                int32_t event_id, void* event_data)
+{
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
+        esp_wifi_connect();
+    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        if (s_retry_num < EXAMPLE_ESP_MAXIMUM_RETRY) {
+            esp_wifi_connect();
+            xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+            s_retry_num++;
+            ESP_LOGI(TAG, "retry to connect to the AP");
+        }
+        ESP_LOGI(TAG,"connect to the AP fail");
+    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+        ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
+        ESP_LOGI(TAG, "got ip:%s",
+                 ip4addr_ntoa(&event->ip_info.ip));
+        s_retry_num = 0;
+        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+    }
+}
+
+//connect to wifi
+void wifi_init_sta(void) {
+
+    //Initialize NVS
+    printf("Wifi setup part 1\n");
+    esp_err_t ret = nvs_flash_init();
+    printf("Wifi setup part 2\n");
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+      ESP_ERROR_CHECK(nvs_flash_erase());
+      ret = nvs_flash_init();
+    }
+
+    printf("Wifi setup part 3\n");
+
+    ESP_ERROR_CHECK(ret);
+    
+    ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
+
+    s_wifi_event_group = xEventGroupCreate();
+    tcpip_adapter_init();
+
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL));
+
+    wifi_config_t wifi_config = {
+        .sta = {
+            .ssid = EXAMPLE_ESP_WIFI_SSID,
+            .password = EXAMPLE_ESP_WIFI_PASS
+        },
+    };
+
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
+    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config) );
+    ESP_ERROR_CHECK(esp_wifi_start() );
+
+    ESP_LOGI(TAG, "wifi_init_sta finished.");
+    ESP_LOGI(TAG, "connect to ap SSID:%s password:%s",
+             EXAMPLE_ESP_WIFI_SSID, EXAMPLE_ESP_WIFI_PASS);
+
+}
+
+
+////SOCKET SETUP/////////////////////////////////////////////////////////////////////
+
+static void udp_init() {
+
+    addr_family = AF_INET;
+    ip_protocol = IPPROTO_IP;
+
+    //socket setup struct
+    dest_addr.sin_addr.s_addr = inet_addr(HOST_IP_ADDR);
+    dest_addr.sin_family = AF_INET;
+    dest_addr.sin_port = htons(PORT);
+    inet_ntoa_r(dest_addr.sin_addr, addr_str, sizeof(addr_str) - 1);
+
+    //establish socket connection
+    sock = socket(addr_family, SOCK_DGRAM, ip_protocol);
+    if (sock < 0) {
+        ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
+    }
+    ESP_LOGI(TAG, "Socket created, sending to %s:%d", HOST_IP_ADDR, PORT);
+}
+
+static void udp_client_receive() {
+
+    while(1) {
+
+        while(1) {
+
+            printf("waiting for a message\n");
+
+            struct sockaddr_in source_addr; // Large enough for both IPv4 or IPv6
+            socklen_t socklen = sizeof(source_addr);
+            int len = recvfrom(sock, rx_buffer, sizeof(rx_buffer) - 1, 0, (struct sockaddr *)&source_addr, &socklen);
+
+            printf("got one!\n");
+
+            // Error occurred during receiving
+            if (len < 0) {
+                ESP_LOGE(TAG, "recvfrom failed: errno %d", errno);
+                break;
+            }
+            // Data received
+            else {
+                rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
+                ESP_LOGI(TAG, "Received %d bytes from %s:", len, addr_str);
+                //ESP_LOGI(TAG, "%s", rx_buffer);
+                printf("received string: %s\n", rx_buffer);
+
+                if (strstr(rx_buffer, "start") != NULL) { //0 if equal
+                    running = true;
+                } else if (strstr(rx_buffer, "stop") != NULL) {
+                    running = false;
+                }
+
+            }
+
+        }
+
+        //shut down socket if anything failed
+        if (sock != -1) {
+            ESP_LOGE(TAG, "Shutting down socket and restarting...");
+            shutdown(sock, 0);
+            close(sock);
+            udp_init();
+        }
+
+    }
+
+    vTaskDelete(NULL);
+
+}
+
+static void udp_client_send(char* message) {
+
+    //assuming ip4v only
+    printf("%s\n", message);
+
+    //send message, and print error if anything failed
+    int err = sendto(sock, message, strlen(message), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+    if (err < 0) {
+        ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
+    }
+}
+
+
 
 ////PCNT FUNCTIONS///////////////////////////////////////////////////////////////////
 
@@ -657,7 +858,7 @@ void drive_control(void *arg)
 {
     //uint32_t angle, count;
 
-    while (1) {
+    while (running) {
         //for (count = 0; count < DRIVE_MAX_DEGREE; count++) {
         //count = 180;
         //    printf("Angle of rotation: %d\n", count);
@@ -700,7 +901,7 @@ void steering_control(void *arg)
     uint32_t angle;
     //uint32_t count = 90;
 
-    while (1) {
+    while (running) {
 
         //for (count = 0; count < STEERING_MAX_DEGREE; count++) {
             //printf("Angle of rotation: %d\n", count);
@@ -716,6 +917,8 @@ void steering_control(void *arg)
 
 
     }
+
+    vTaskDelete(NULL);
 }
 
 // PID Functions ///////////////////////////////////////////////////////
@@ -869,25 +1072,39 @@ static void timer_example_evt_task(void *arg)
 void app_main(void)
 {
 
+    //networking startup routines
+    wifi_init_sta();
+    udp_init();
+
     // I2C startup routine
     i2c_master_init();
     i2c_scanner();
-    //accel_init();
     alpha_init();
+    alpha_write(0.0); //set default speed to 0
 
-    double dummyY, dummyZ;
     timer_queue = xQueueCreate(10, sizeof(timer_event_t));
     example_tg0_timer_init(TIMER_0, TEST_WITHOUT_RELOAD, TIMER_INTERVAL0_SEC);
 
     // Drive & steering startup routine
     pwm_init();
+    uart_init();
+
+    printf("Calibrating motors...");
     calibrateESC();
 
-    uart_init();
     //xTaskCreate(rx_task, "uart_rx_task", 1024*2, NULL, configMAX_PRIORITIES, NULL);
     //xTaskCreate(tx_task, "uart_tx_task", 1024*2, NULL, configMAX_PRIORITIES-1, NULL);
 
-    printf("Testing servo motor.......\n");
+    printf("Waiting for start signal...\n");
+    udp_client_send("Test message");
+    xTaskCreate(udp_client_receive, "udp_client_receive", 4096, NULL, 6, NULL);
+
+    while (!running) {
+        vTaskDelay(100/portTICK_RATE_MS);
+    }
+
+    printf("Starting up!");
+
     xTaskCreate(steering_control, "steering_control", 4096, NULL, 5, NULL);
     xTaskCreate(drive_control, "drive_control", 4096, NULL, 4, NULL);
     xTaskCreate(timer_example_evt_task, "timer_evt_task", 2048, NULL, 3, NULL);
