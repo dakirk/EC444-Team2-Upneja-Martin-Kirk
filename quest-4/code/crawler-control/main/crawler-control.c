@@ -27,13 +27,14 @@
 #include "displaychars.h"
 #include "driver/periph_ctrl.h"
 #include "driver/timer.h"
+#include "driver/pcnt.h"
 
 // Timer Init //////////////////////////////////////////////////////////////////////
 double dt = 0.001;
 
 #define TIMER_DIVIDER         16  //  Hardware timer clock divider
 #define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)  // convert counter value to seconds
-#define TIMER_INTERVAL0_SEC   (3) // sample test interval for the first timer
+#define TIMER_INTERVAL0_SEC   (.001) // sample test interval for the first timer
 #define TEST_WITHOUT_RELOAD   0        // testing will be done without auto reload
 
 typedef struct {
@@ -44,6 +45,31 @@ typedef struct {
 } timer_event_t;
 
 xQueueHandle timer_queue;
+
+////PCNT SETUP///////////////////////////////////////////////////////////////////
+
+#define PCNT_TEST_UNIT      PCNT_UNIT_0
+#define PCNT_H_LIM_VAL      100
+#define PCNT_L_LIM_VAL     -10
+#define PCNT_THRESH1_VAL    100
+#define PCNT_THRESH0_VAL    0.20F
+#define PCNT_INPUT_SIG_IO   34  // Pulse Input GPIO
+#define PCNT_INPUT_CTRL_IO  5  // Control GPIO HIGH=count up, LOW=count down
+#define LEDC_OUTPUT_IO      18 // Output GPIO of a sample 1 Hz pulse generator
+
+int timeCounter = 0;
+int blackStripeCount = 0;
+
+xQueueHandle pcnt_evt_queue;   // A queue to handle pulse counter events
+pcnt_isr_handle_t user_isr_handle = NULL; //user's ISR service handle
+
+/* A sample structure to pass events from the PCNT
+ * interrupt handler to the main program.
+ */
+typedef struct {
+    int unit;  // the PCNT unit that originated an interrupt
+    uint32_t status; // information on the event type that caused the interrupt
+} pcnt_evt_t;
 
 ////DRIVING SETUP///////////////////////////////////////////////////////////////////
 
@@ -94,6 +120,137 @@ double speed = 0.0;
 float base_x_acceleration;
 uint32_t angle_duty = 90;
 uint32_t drive_duty = 1270;
+
+////PCNT FUNCTIONS///////////////////////////////////////////////////////////////////
+
+/* Decode what PCNT's unit originated an interrupt
+ * and pass this information together with the event type
+ * the main program using a queue.
+ */
+static void IRAM_ATTR pcnt_example_intr_handler(void *arg)
+{
+    uint32_t intr_status = PCNT.int_st.val;
+    int i;
+    pcnt_evt_t evt;
+    portBASE_TYPE HPTaskAwoken = pdFALSE;
+
+    for (i = 0; i < PCNT_UNIT_MAX; i++) {
+        if (intr_status & (BIT(i))) {
+            evt.unit = i;
+            /* Save the PCNT event type that caused an interrupt
+               to pass it to the main program */
+            evt.status = PCNT.status_unit[i].val;
+            PCNT.int_clr.val = BIT(i);
+            xQueueSendFromISR(pcnt_evt_queue, &evt, &HPTaskAwoken);
+            if (HPTaskAwoken == pdTRUE) {
+                portYIELD_FROM_ISR();
+            }
+        }
+    }
+}
+
+/* Initialize PCNT functions:
+ *  - configure and initialize PCNT
+ *  - set up the input filter
+ *  - set up the counter events to watch
+ */
+static void pcnt_example_init(void)
+{
+
+    /* Initialize PCNT event queue and PCNT functions */
+    pcnt_evt_queue = xQueueCreate(10, sizeof(pcnt_evt_t));
+    /* Prepare configuration for the PCNT unit */
+    pcnt_config_t pcnt_config = {
+        // Set PCNT input signal and control GPIOs
+        .pulse_gpio_num = PCNT_INPUT_SIG_IO,
+        .ctrl_gpio_num = PCNT_INPUT_CTRL_IO,
+        .channel = PCNT_CHANNEL_0,
+        .unit = PCNT_TEST_UNIT,
+        // What to do on the positive / negative edge of pulse input?
+        .pos_mode = PCNT_COUNT_INC,   // Count up on the positive edge
+        .neg_mode = PCNT_COUNT_DIS,   // Keep the counter value on the negative edge
+        // What to do when control input is low or high?
+        .lctrl_mode = PCNT_MODE_REVERSE, // Reverse counting direction if low
+        .hctrl_mode = PCNT_MODE_KEEP,    // Keep the primary counter mode if high
+        // Set the maximum and minimum limit values to watch
+        .counter_h_lim = PCNT_H_LIM_VAL,
+        .counter_l_lim = PCNT_L_LIM_VAL,
+    };
+    /* Initialize PCNT unit */
+    pcnt_unit_config(&pcnt_config);
+
+    /* Configure and enable the input filter */
+    pcnt_set_filter_value(PCNT_TEST_UNIT, 100);
+    pcnt_filter_enable(PCNT_TEST_UNIT);
+
+    /* Set threshold 0 and 1 values and enable events to watch */
+    pcnt_set_event_value(PCNT_TEST_UNIT, PCNT_EVT_THRES_1, PCNT_THRESH1_VAL);
+    pcnt_event_enable(PCNT_TEST_UNIT, PCNT_EVT_THRES_1);
+    pcnt_set_event_value(PCNT_TEST_UNIT, PCNT_EVT_THRES_0, PCNT_THRESH0_VAL);
+    pcnt_event_enable(PCNT_TEST_UNIT, PCNT_EVT_THRES_0);
+    /* Enable events on zero, maximum and minimum limit values */
+    pcnt_event_enable(PCNT_TEST_UNIT, PCNT_EVT_ZERO);
+    pcnt_event_enable(PCNT_TEST_UNIT, PCNT_EVT_H_LIM);
+    pcnt_event_enable(PCNT_TEST_UNIT, PCNT_EVT_L_LIM);
+
+    /* Initialize PCNT's counter */
+    pcnt_counter_pause(PCNT_TEST_UNIT);
+    pcnt_counter_clear(PCNT_TEST_UNIT);
+
+    /* Register ISR handler and enable interrupts for PCNT unit */
+    pcnt_isr_register(pcnt_example_intr_handler, NULL, 0, &user_isr_handle);
+    pcnt_intr_enable(PCNT_TEST_UNIT);
+
+    /* Everything is set up, now go to counting */
+    pcnt_counter_resume(PCNT_TEST_UNIT);
+}
+
+static int pcnt_read() {
+    
+    pcnt_example_init();
+
+    int16_t count = 0;
+    pcnt_evt_t evt;
+    portBASE_TYPE res;
+    //while (1) {
+        /* Wait for the event information passed from PCNT's interrupt handler.
+         * Once received, decode the event type and print it on the serial monitor.
+         */
+    res = xQueueReceive(pcnt_evt_queue, &evt, 500 / portTICK_PERIOD_MS);
+    if (res == pdTRUE) {
+        pcnt_get_counter_value(PCNT_TEST_UNIT, &count);
+        printf("Event PCNT unit[%d]; cnt: %d\n", evt.unit, count);
+        if (evt.status & PCNT_STATUS_THRES1_M) {
+            printf("THRES1 EVT\n");
+        }
+        if (evt.status & PCNT_STATUS_THRES0_M) {
+            printf("THRES0 EVT\n");
+        }
+        if (evt.status & PCNT_STATUS_L_LIM_M) {
+            printf("L_LIM EVT\n");
+        }
+        if (evt.status & PCNT_STATUS_H_LIM_M) {
+            printf("H_LIM EVT\n");
+        }
+        if (evt.status & PCNT_STATUS_ZERO_M) {
+            printf("ZERO EVT\n");
+        }
+    } else {
+        pcnt_get_counter_value(PCNT_TEST_UNIT, &count);
+        printf("Current counter value :%d\n", count);
+    }
+
+    pcnt_counter_clear(PCNT_TEST_UNIT);
+
+    //}
+    if(user_isr_handle) {
+        //Free the ISR service handle.
+        esp_intr_free(user_isr_handle);
+        user_isr_handle = NULL;
+    }
+
+    return count;
+}
 
 ////I2C FUNCTIONS///////////////////////////////////////////////////////////////////
 
@@ -565,7 +722,7 @@ int rx_task_front()
 
             avgDist /= distCounter;
 
-            ESP_LOGI(RX_TASK_TAG, "Distance: %d", avgDist);
+            //ESP_LOGI(RX_TASK_TAG, "Distance: %d", avgDist);
 
         }
 
@@ -573,7 +730,7 @@ int rx_task_front()
     //}
     free(data);
 
-    return distConcat;
+    return avgDist;
 }
 
 int rx_task_side()
@@ -595,15 +752,19 @@ int rx_task_side()
             int i;
             int distCounter = 0;
 
+            //scan for first instance of 2 0x59 bytes in a row (data header)
             for (i = 0; i < rxBytes; i++) {
                 if (data[i] == 0x59 && data[i+1] == 0x59) {
                     break;
                 }
             }
 
+            //until the end of the data stream, read the 3rd and 4th byte in every 9 bytes (distance data)
             for (i+=2; i < rxBytes; i+= 9) {
                 //ESP_LOGI(RX_TASK_TAG, "Lower byte %d: %x", i, data[i]);
                 //ESP_LOGI(RX_TASK_TAG, "Higher byte %d: %x", i, data[i+1]);
+
+                //concatenate 3rd and 4th bytes into a distance value (cm)
                 distConcat = (((uint16_t)data[i+1] << 8) | data[i]);
                 avgDist += distConcat;
                 distCounter++;
@@ -613,7 +774,7 @@ int rx_task_side()
 
             avgDist /= distCounter;
 
-            ESP_LOGI(RX_TASK_TAG, "Distance: %d", avgDist);
+            //ESP_LOGI(RX_TASK_TAG, "Distance: %d", avgDist);
 
         }
 
@@ -621,7 +782,7 @@ int rx_task_side()
     //}
     free(data);
 
-    return distConcat;
+    return avgDist;
 }
 
 static void mcpwm_example_gpio_initialize(void)
@@ -708,7 +869,7 @@ void drive_control(void *arg)
 
         int avgDistFront = rx_task_front();
         int avgDistSide = rx_task_side();
-        printf("Front dist: %d; Side dist: %d\n", avgDistFront, avgDistSide);
+        //printf("Front dist: %d; Side dist: %d\n", avgDistFront, avgDistSide);
 
         //if (avgDist < 90) {
         //    break;
@@ -738,14 +899,13 @@ void steering_control(void *arg)
             //printf("pulse width: %dus\n", angle);
             mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
 
-            float xVal, yVal, zVal;
-            getAccel(&xVal, &yVal, &zVal);
+            //float xVal, yVal, zVal;
+            //getAccel(&xVal, &yVal, &zVal);
 
-            speed += ((xVal-base_x_acceleration) / 10);
+            //speed += ((xVal-base_x_acceleration) / 10);
 
             //printf("%f\n", base_x_acceleration);
 
-            alpha_write(fabs(speed));
 
 
             vTaskDelay(100/portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
@@ -814,6 +974,7 @@ static void inline print_timer_counter(uint64_t counter_value)
  */
 void IRAM_ATTR timer_group0_isr(void *para)
 {
+
     int timer_idx = (int) para;
     
     /* Retrieve the interrupt status and the counter value
@@ -886,8 +1047,20 @@ static void example_tg0_timer_init(int timer_idx,
 static void timer_example_evt_task(void *arg)
 {
     while (1) {
+
         timer_event_t evt;
         xQueueReceive(timer_queue, &evt, portMAX_DELAY);
+
+        if (timeCounter >= 500) {
+            blackStripeCount = pcnt_read();
+            timeCounter = 0;
+            speed = (((double)blackStripeCount / 6.0) * 0.598) / .5; //convert to m/s
+            alpha_write(speed);
+        } else {
+            //every ms
+            timeCounter++;
+        }
+
         pid_speed();
         pid_steering();
     }
@@ -919,5 +1092,6 @@ void app_main(void)
     printf("Testing servo motor.......\n");
     xTaskCreate(steering_control, "steering_control", 4096, NULL, 5, NULL);
     xTaskCreate(drive_control, "drive_control", 4096, NULL, 4, NULL);
-    xTaskCreate(timer_example_evt_task, "timer_evt_task", 2048, NULL, 5, NULL);
+    xTaskCreate(timer_example_evt_task, "timer_evt_task", 2048, NULL, 3, NULL);
+    //xTaskCreate(pcnt_test_task, "pcnt_test_task", 2048, NULL, 2, NULL);
 }
