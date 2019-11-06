@@ -28,12 +28,32 @@
 #include "driver/periph_ctrl.h"
 #include "driver/timer.h"
 
+// PID Init ////////////////////////////////////////////////////////////////////////
+
+// steering
+double setpoint_st = 90; // cm from side wall
+double previous_error_st = 0.0;
+double integral_st = 0.0;
+double derivative_st = 0.0;
+
+int side_dist = 0; // input
+uint32_t angle_duty = 90; // actuation
+
+// speed
+double setpoint_sp = 0.1;
+double previous_error_sp = 0.0;
+double integral_sp = 0.0;
+double derivative_sp = 0.0;
+
+double speed = 0.0; // input
+uint32_t drive_duty = 1270; // actuation
+
 // Timer Init //////////////////////////////////////////////////////////////////////
 double dt = 0.001;
 
 #define TIMER_DIVIDER         16  //  Hardware timer clock divider
 #define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)  // convert counter value to seconds
-#define TIMER_INTERVAL0_SEC   (3) // sample test interval for the first timer
+#define TIMER_INTERVAL0_SEC   (dt) // sample test interval for the first timer
 #define TEST_WITHOUT_RELOAD   0        // testing will be done without auto reload
 
 typedef struct {
@@ -90,10 +110,7 @@ static const int RX_BUF_SIZE = 128;
 #define TXD_PIN_SIDE  (GPIO_NUM_4)
 #define RXD_PIN_SIDE  (GPIO_NUM_36)
 
-double speed = 0.0;
 float base_x_acceleration;
-uint32_t angle_duty = 90;
-uint32_t drive_duty = 1270;
 
 ////I2C FUNCTIONS///////////////////////////////////////////////////////////////////
 
@@ -154,227 +171,6 @@ static void i2c_scanner() {
         printf("- No I2C devices found!" "\n");
     printf("\n");
 }
-
-// ADXL343 Functions ///////////////////////////////////////////////////////////
-
-// Get Device ID
-int getAccelDeviceID(uint8_t *data) {
-  int ret;
-  i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-  i2c_master_start(cmd);
-  i2c_master_write_byte(cmd, ( ACCEL_ADDR << 1 ) | WRITE_BIT, ACK_CHECK_EN);
-  i2c_master_write_byte(cmd, ADXL343_REG_DEVID, ACK_CHECK_EN);
-  i2c_master_start(cmd);
-  i2c_master_write_byte(cmd, ( ACCEL_ADDR << 1 ) | READ_BIT, ACK_CHECK_EN);
-  i2c_master_read_byte(cmd, data, ACK_CHECK_DIS);
-  i2c_master_stop(cmd);
-  ret = i2c_master_cmd_begin(I2C_EXAMPLE_MASTER_NUM, cmd, 1000 / portTICK_RATE_MS);
-  i2c_cmd_link_delete(cmd);
-  return ret;
-}
-
-// Write one byte to register
-void writeAccelRegister(uint8_t reg, uint8_t data) {
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    //start command
-    i2c_master_start(cmd);
-    //ACCEL address followed by write bit
-    i2c_master_write_byte(cmd, ( ACCEL_ADDR << 1 ) | WRITE_BIT, ACK_CHECK_EN);
-    //register pointer sent
-    i2c_master_write_byte(cmd, reg, ACK_CHECK_EN);
-    //data sent
-    i2c_master_write_byte(cmd, data, ACK_CHECK_DIS);
-    //stop command
-    i2c_master_stop(cmd);
-    i2c_master_cmd_begin(I2C_EXAMPLE_MASTER_NUM, cmd, 1000 / portTICK_RATE_MS);
-    i2c_cmd_link_delete(cmd);
-}
-
-// Read register
-uint8_t readAccelRegister(uint8_t reg) {
-    uint8_t value;
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    //start command
-    i2c_master_start(cmd);
-    //slave followed by write bit
-    i2c_master_write_byte(cmd, ( ACCEL_ADDR << 1 ) | WRITE_BIT, ACK_CHECK_EN);
-    //register pointer sent
-    i2c_master_write_byte(cmd, reg, ACK_CHECK_EN);
-    //repeated start command
-    i2c_master_start(cmd);
-    //slave followed by read bit
-    i2c_master_write_byte(cmd, ( ACCEL_ADDR << 1 ) | READ_BIT, ACK_CHECK_EN);
-    //place data from register into bus
-    i2c_master_read_byte(cmd, &value, ACK_CHECK_DIS);
-    //stop command
-    i2c_master_stop(cmd);
-    i2c_master_cmd_begin(I2C_EXAMPLE_MASTER_NUM, cmd, 1000 / portTICK_RATE_MS);
-    i2c_cmd_link_delete(cmd);
-    return value;
-}
-
-// read 16 bits (2 bytes)
-int16_t readAccel16(uint8_t reg) {
-    uint8_t val1;
-    uint8_t val2;
-    val1 = readAccelRegister(reg);
-    if (reg == 41) {
-        val2 = 0;
-    } else {
-        val2 = readAccelRegister(reg+1);
-    }
-    return (((int16_t)val2 << 8) | val1);
-}
-
-void setRange(range_t range) {
-    // Red the data format register to preserve bits
-    uint8_t format = readAccelRegister(ADXL343_REG_DATA_FORMAT);
-
-    // Update the data rate
-    format &= ~0x0F;
-    format |= range;
-
-    // Make sure that the FULL-RES bit is enabled for range scaling
-    format |= 0x08;
-
-    // Write the register back to the IC
-    writeAccelRegister(ADXL343_REG_DATA_FORMAT, format);
-
-}
-
-range_t getRange(void) {
-    // Red the data format register to preserve bits
-    return (range_t)(readAccelRegister(ADXL343_REG_DATA_FORMAT) & 0x03);
-}
-
-dataRate_t getDataRate(void) {
-    return (dataRate_t)(readAccelRegister(ADXL343_REG_BW_RATE) & 0x0F);
-}
-
-static void accel_init() {
-
-  // Check for ADXL343
-  uint8_t deviceID;
-  getAccelDeviceID(&deviceID);
-  if (deviceID == 0xE5) {
-    printf("\n>> Found ADAXL343\n");
-  }
-  
-  // Disable interrupts
-  writeAccelRegister(ADXL343_REG_INT_ENABLE, 0);
-
-  // Set range
-  setRange(ADXL343_RANGE_2_G);
-  // Display range
-  printf  ("- Range:         +/- ");
-  switch(getRange()) {
-    case ADXL343_RANGE_16_G:
-      printf  ("16 ");
-      break;
-    case ADXL343_RANGE_8_G:
-      printf  ("8 ");
-      break;
-    case ADXL343_RANGE_4_G:
-      printf  ("4 ");
-      break;
-    case ADXL343_RANGE_2_G:
-      printf  ("2 ");
-      break;
-    default:
-      printf  ("?? ");
-      break;
-  }
-  printf(" g\n");
-
-  // Display data rate
-  printf ("- Data Rate:    ");
-  switch(getDataRate()) {
-    case ADXL343_DATARATE_3200_HZ:
-      printf  ("3200 ");
-      break;
-    case ADXL343_DATARATE_1600_HZ:
-      printf  ("1600 ");
-      break;
-    case ADXL343_DATARATE_800_HZ:
-      printf  ("800 ");
-      break;
-    case ADXL343_DATARATE_400_HZ:
-      printf  ("400 ");
-      break;
-    case ADXL343_DATARATE_200_HZ:
-      printf  ("200 ");
-      break;
-    case ADXL343_DATARATE_100_HZ:
-      printf  ("100 ");
-      break;
-    case ADXL343_DATARATE_50_HZ:
-      printf  ("50 ");
-      break;
-    case ADXL343_DATARATE_25_HZ:
-      printf  ("25 ");
-      break;
-    case ADXL343_DATARATE_12_5_HZ:
-      printf  ("12.5 ");
-      break;
-    case ADXL343_DATARATE_6_25HZ:
-      printf  ("6.25 ");
-      break;
-    case ADXL343_DATARATE_3_13_HZ:
-      printf  ("3.13 ");
-      break;
-    case ADXL343_DATARATE_1_56_HZ:
-      printf  ("1.56 ");
-      break;
-    case ADXL343_DATARATE_0_78_HZ:
-      printf  ("0.78 ");
-      break;
-    case ADXL343_DATARATE_0_39_HZ:
-      printf  ("0.39 ");
-      break;
-    case ADXL343_DATARATE_0_20_HZ:
-      printf  ("0.20 ");
-      break;
-    case ADXL343_DATARATE_0_10_HZ:
-      printf  ("0.10 ");
-      break;
-    default:
-      printf  ("???? ");
-      break;
-  }
-  printf(" Hz\n\n");
-
-  // Enable measurements
-  writeAccelRegister(ADXL343_REG_POWER_CTL, 0x08);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-// function to get acceleration - NOT THREAD SAFE
-void getAccel(float * xp, float *yp, float *zp) {
-    *xp = readAccel16(ADXL343_REG_DATAX0) * ADXL343_MG2G_MULTIPLIER * SENSORS_GRAVITY_STANDARD;
-    *yp = readAccel16(ADXL343_REG_DATAY0) * ADXL343_MG2G_MULTIPLIER * SENSORS_GRAVITY_STANDARD;
-    *zp = readAccel16(ADXL343_REG_DATAZ0) * ADXL343_MG2G_MULTIPLIER * SENSORS_GRAVITY_STANDARD;
-    printf("X: %.2f \t Y: %.2f \t Z: %.2f\n", *xp, *yp, *zp);
-}
-
-// function to print roll and pitch
-void calcRP(float x, float y, float z){
-    float roll = atan2(y , z) * 57.3;
-    float pitch = atan2((-1*x) , sqrt(y*y + z*z)) * 57.3;
-    printf("roll: %.2f \t pitch: %.2f \n", roll, pitch);
-}
-
-/*
-// Task to continuously poll acceleration and calculate roll and pitch
-static void test_adxl343() {
-    printf("\n>> Polling ADAXL343\n");
-    while (1) {
-        float xVal, yVal, zVal;
-        getAccel(&xVal, &yVal, &zVal);
-        calcRP(xVal, yVal, zVal);
-        vTaskDelay(500 / portTICK_RATE_MS);
-    }
-}*/
 
 // Alphanumeric Functions //////////////////////////////////////////////////////
 
@@ -573,7 +369,7 @@ int rx_task_front()
     //}
     free(data);
 
-    return distConcat;
+    return avgDist;
 }
 
 int rx_task_side()
@@ -620,8 +416,8 @@ int rx_task_side()
         //vTaskDelay(100/portTICK_RATE_MS);
     //}
     free(data);
-
-    return distConcat;
+    side_dist = avgDist;
+    return avgDist;
 }
 
 static void mcpwm_example_gpio_initialize(void)
@@ -738,15 +534,6 @@ void steering_control(void *arg)
             //printf("pulse width: %dus\n", angle);
             mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
 
-            float xVal, yVal, zVal;
-            getAccel(&xVal, &yVal, &zVal);
-
-            speed += ((xVal-base_x_acceleration) / 10);
-
-            //printf("%f\n", base_x_acceleration);
-
-            alpha_write(fabs(speed));
-
 
             vTaskDelay(100/portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
         //}
@@ -757,41 +544,49 @@ void steering_control(void *arg)
 
 // PID Functions ///////////////////////////////////////////////////////
 void pid_speed() {
-    double setpoint = 0.1;
-    double previous_error = 0.0;
-    double integral = 0.0;
-    double derivative = 0.0;
     double error = 0.0;
     double kp = 0.5;
     double ki = 0.5;
     double kd = 0.5;
     double output;
 
-    error = setpoint - speed;
-    integral = integral + error * dt;
-    derivative = (error - previous_error) / dt;
-    previous_error = error;
-    output = kp * error + ki * integral + kd * derivative;
-    speed = output;
+    error = setpoint_sp - speed;
+    integral_sp = integral_sp + error * dt;
+    derivative_sp = (error - previous_error_sp) / dt;
+    previous_error_sp = error;
+    output = kp * error + ki * integral_sp + kd * derivative_sp;
+    
+    // convert output to duty (output will be in the form of distance from wall)
+    if (error > 0) {
+      drive_duty = drive_duty - (5 * dt);
+    } else if (error < 0) {
+      drive_duty = drive_duty + (5 * dt);
+    } else {
+      drive_duty = drive_duty;
+    }
 }
 
 void pid_steering() {
-    double setpoint = 90;
-    double previous_error = 0.0;
-    double integral = 0.0;
-    double derivative = 0.0;
     double error = 0.0;
     double kp = 0.5;
     double ki = 0.5;
     double kd = 0.5;
     double output;
 
-    error = setpoint - speed;
-    integral = integral + error * dt;
-    derivative = (error - previous_error) / dt;
-    previous_error = error;
-    output = kp * error + ki * integral + kd * derivative;
-    speed = output;
+    error = setpoint_st - side_dist;
+    integral_st = integral_st + error * dt;
+    derivative_st = (error - previous_error_st) / dt;
+    previous_error_st = error;
+    output = kp * error + ki * integral_st + kd * derivative_st;
+
+    // convert output to duty (output will be in the form of distance from wall)
+    if (error > 0) {
+      angle_duty = angle_duty - (5 * dt);
+    } else if (error < 0) {
+      angle_duty = angle_duty + (5 * dt);
+    } else {
+      angle_duty = angle_duty;
+    }
 }
 
 // Timer ///////////////////////////////////////////////////////////////
@@ -888,7 +683,7 @@ static void timer_example_evt_task(void *arg)
     while (1) {
         timer_event_t evt;
         xQueueReceive(timer_queue, &evt, portMAX_DELAY);
-        pid_speed();
+        //pid_speed();
         pid_steering();
     }
 }
@@ -899,7 +694,7 @@ void app_main(void)
     // I2C startup routine
     i2c_master_init();
     i2c_scanner();
-    accel_init();
+    //accel_init();
     alpha_init();
 
     double dummyY, dummyZ;
@@ -909,8 +704,6 @@ void app_main(void)
     // Drive & steering startup routine
     pwm_init();
     calibrateESC();
-
-    getAccel(&base_x_acceleration, &dummyY, &dummyZ);
 
     uart_init();
     //xTaskCreate(rx_task, "uart_rx_task", 1024*2, NULL, configMAX_PRIORITIES, NULL);
