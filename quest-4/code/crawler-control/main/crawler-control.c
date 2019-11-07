@@ -62,16 +62,16 @@ int side_dist = 0; // input
 uint32_t angle_duty = 90; // actuation
 
 // speed
-double setpoint_sp = 0.1;
+double setpoint_sp = 0.3;
 double previous_error_sp = 0.0;
 double integral_sp = 0.0;
 double derivative_sp = 0.0;
 
 double speed = 0.0; // input
-uint32_t drive_duty = 1270; // actuation
+uint32_t drive_duty = 1200; // actuation
 
 // Timer Init //////////////////////////////////////////////////////////////////////
-double dt = 0.001;
+double dt = 1;
 
 #define TIMER_DIVIDER         16  //  Hardware timer clock divider
 #define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)  // convert counter value to seconds
@@ -165,7 +165,7 @@ float base_x_acceleration;
 ////WIFI & SOCKET SETUP///////////////////////////////////////////////////////////////////
 
 //socket variables
-#define HOST_IP_ADDR "192.168.1.101"                    //target server ip
+#define HOST_IP_ADDR "192.168.1.102"                    //target server ip
 #define PORT 3333                                       //target server port
 char rx_buffer[128];
 char addr_str[128];
@@ -183,7 +183,7 @@ const int WIFI_CONNECTED_BIT = BIT0;                    //The event group allows
 static const char *TAG = "wifi station";
 static int s_retry_num = 0;
 
-bool running = false;
+bool running = true;//false;
 
 //function headers
 void pid_speed();
@@ -344,8 +344,6 @@ static void udp_client_send(char* message) {
     }
 }
 
-
-
 ////PCNT FUNCTIONS///////////////////////////////////////////////////////////////////
 
 /* Decode what PCNT's unit originated an interrupt
@@ -461,7 +459,7 @@ static int pcnt_read(int delay) {
         }
     } else {
         pcnt_get_counter_value(PCNT_TEST_UNIT, &count);
-        printf("Current counter value :%d\n", count);
+        //printf("Current counter value :%d\n", count);
     }
 
     //clear the internal counter for the next reading
@@ -846,22 +844,23 @@ void drive_control(void *arg)
 
         int avgDistFront = rx_task_front();
 
-        blackStripeCount = pcnt_read(500); //.5s delay to read
-        speed = (((double)blackStripeCount / 6.0) * 0.598) / .5; //convert to m/s
+        blackStripeCount = pcnt_read(1000); //.5s delay to read
+        speed = (((double)blackStripeCount / 6.0) * 0.598) / 1; //convert to m/s
         alpha_write(speed);
 
 
         pid_speed();
-        pid_steering();
+        //printf("%d\n", drive_duty);
+        
 
-        //printf("Front dist: %d; Side dist: %d\n", avgDistFront, avgDistSide);
+        //printf("Front dist: %d; Side dist: %d\n", avgDistFront, side_dist);
 
         //UNCOMMENT THIS TO MAKE THE CRAWLER STOP BEFORE THE WALL
         /*
         if (avgDistFront < 90) {
             break;
-        }*/
-
+        }
+        */
     }
 
     mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 1400);
@@ -872,6 +871,7 @@ void drive_control(void *arg)
 /**
  * @brief Configure MCPWM module
  */
+/*
 void steering_control(void *arg)
 {
     uint32_t angle;
@@ -882,6 +882,8 @@ void steering_control(void *arg)
         angle = steering_per_degree_init(angle_duty);
 
         int avgDistSide = rx_task_side();
+        side_dist = avgDistSide;
+        pid_steering();
 
         mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
 
@@ -891,53 +893,37 @@ void steering_control(void *arg)
 
     vTaskDelete(NULL);
 }
-
+*/
 // PID Functions ///////////////////////////////////////////////////////
 void pid_speed() {
     double error = 0.0;
-    double kp = 0.5;
-    double ki = 0.5;
-    double kd = 0.5;
+    double e = 0.0;
+    double kp = 2.0;
+    double ki = 1.0;
+    double kd = 1.0;
     double output;
 
-    error = setpoint_sp - speed;
-    integral_sp = integral_sp + error * dt;
-    derivative_sp = (error - previous_error_sp) / dt;
+    e = setpoint_sp - speed;
+    error = fabs(setpoint_sp - speed);
+    //integral_sp = integral_sp + error * dt;
+    derivative_sp = fabs(error - previous_error_sp) / dt;
     previous_error_sp = error;
-    output = kp * error + ki * integral_sp + kd * derivative_sp;
+    output = kp * error + kd * derivative_sp; //+ ki * integral_sp
+
+    printf("%.1f\n", e);
     
     // convert output to duty (output will be in the form of distance from wall)
-    if (error > 0) {
-      drive_duty = drive_duty - (5 * dt);
-    } else if (error < 0) {
-      drive_duty = drive_duty + (5 * dt);
+    
+    if (e > 0) {
+      drive_duty = drive_duty + output;
+    } else if (e < 0) {
+      drive_duty = drive_duty - output;
     } else {
       drive_duty = drive_duty;
     }
+    
 }
 
-void pid_steering() {
-    double error = 0.0;
-    double kp = 0.5;
-    double ki = 0.5;
-    double kd = 0.5;
-    double output;
-
-    error = setpoint_st - side_dist;
-    integral_st = integral_st + error * dt;
-    derivative_st = (error - previous_error_st) / dt;
-    previous_error_st = error;
-    output = kp * error + ki * integral_st + kd * derivative_st;
-
-    // convert output to duty (output will be in the form of distance from wall)
-    if (error > 0) {
-      angle_duty = angle_duty - (5 * dt);
-    } else if (error < 0) {
-      angle_duty = angle_duty + (5 * dt);
-    } else {
-      angle_duty = angle_duty;
-    }
-}
 
 // Timer ///////////////////////////////////////////////////////////////
 /*
@@ -1043,7 +1029,7 @@ static void timer_example_evt_task(void *arg)
 void app_main(void)
 {
 
-    //networking startup routines
+    networking startup routines
     wifi_init_sta();
     udp_init();
 
@@ -1063,7 +1049,7 @@ void app_main(void)
     printf("Calibrating motors...");
     calibrateESC();
 
-    //wait for "start" signal from Node.js UDP server
+    wait for "start" signal from Node.js UDP server
     printf("Waiting for start signal...\n");
     udp_client_send("Test message");
     xTaskCreate(udp_client_receive, "udp_client_receive", 4096, NULL, 6, NULL); //also used later for getting stop signal
@@ -1074,7 +1060,7 @@ void app_main(void)
     printf("Starting up!");
 
     //start up driving tasks
-    xTaskCreate(steering_control, "steering_control", 4096, NULL, 5, NULL);
+    //xTaskCreate(steering_control, "steering_control", 4096, NULL, 5, NULL);
     xTaskCreate(drive_control, "drive_control", 4096, NULL, 4, NULL);
-    xTaskCreate(timer_example_evt_task, "timer_evt_task", 2048, NULL, 3, NULL);
+    //xTaskCreate(timer_example_evt_task, "timer_evt_task", 2048, NULL, 3, NULL);
 }
