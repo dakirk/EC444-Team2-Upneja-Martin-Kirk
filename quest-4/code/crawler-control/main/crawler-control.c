@@ -91,6 +91,7 @@ xQueueHandle timer_queue;
 
 ////PCNT SETUP///////////////////////////////////////////////////////////////////
 
+//pcnt settings
 #define PCNT_TEST_UNIT      PCNT_UNIT_0
 #define PCNT_H_LIM_VAL      100
 #define PCNT_L_LIM_VAL     -10
@@ -436,10 +437,9 @@ static int pcnt_read(int delay) {
     int16_t count = 0;
     pcnt_evt_t evt;
     portBASE_TYPE res;
-    //while (1) {
-        /* Wait for the event information passed from PCNT's interrupt handler.
-         * Once received, decode the event type and print it on the serial monitor.
-         */
+    /* Wait for the event information passed from PCNT's interrupt handler.
+     * Once received, decode the event type and print it on the serial monitor.
+     */
     res = xQueueReceive(pcnt_evt_queue, &evt, delay / portTICK_PERIOD_MS);
     if (res == pdTRUE) {
         pcnt_get_counter_value(PCNT_TEST_UNIT, &count);
@@ -464,9 +464,9 @@ static int pcnt_read(int delay) {
         printf("Current counter value :%d\n", count);
     }
 
+    //clear the internal counter for the next reading
     pcnt_counter_clear(PCNT_TEST_UNIT);
 
-    //}
     if(user_isr_handle) {
         //Free the ISR service handle.
         esp_intr_free(user_isr_handle);
@@ -602,24 +602,19 @@ void alpha_write(double number) {
     int i, ret;
 
     uint16_t displaybuffer[8];
-    char strIn[317];
+    char strIn[317]; //input string is 317 chars because largest possible sprintf output is 317 chars
 
-    //itoa(number, strIn, 10);
     sprintf(strIn, "%04f", number);
-    //displaybuffer[0] = alphafonttable['a']; //0b0101001000000001;  // T.
-    //displaybuffer[1] = alphafonttable['b']; //0b0101001000001111;  // D.
-    //displaybuffer[2] = alphafonttable['c']; //0b0100000000111001;  // C.
-    //displaybuffer[3] = alphafonttable['d']; //0b0100000000111000;  // L.
+
+    //fill displaybuffer with spaces to make display blank
     for (i = 0; i < 4; ++i) displaybuffer[i] = alphafonttable[' '];
 
-    //for (i = 0; i < 4; ++i) displaybuffer[i] = alphafonttable[(int)strIn[i]];
+    //populate display buffer with string contents
     i = 0;
     while (i < 4 && strIn[i] != '\0') {
         displaybuffer[i] = alphafonttable[(int)strIn[i]];
         ++i;
     }
-
-    //strIn = "";
 
     // Send commands characters to display over I2C
     i2c_cmd_handle_t cmd4 = i2c_cmd_link_create();
@@ -634,12 +629,8 @@ void alpha_write(double number) {
     ret = i2c_master_cmd_begin(I2C_EXAMPLE_MASTER_NUM, cmd4, 1000 / portTICK_RATE_MS);
     i2c_cmd_link_delete(cmd4);
 
-    //for (int i = 0; i < 8; i++) {
-    //    printf("%04x\n", displaybuffer[i]);
-    //}
-
     if(ret == ESP_OK) {
-    //printf("- wrote: T.D.C.L. \n\n");
+        //printf("- wrote: T.D.C.L. \n\n");
     }
 }
 
@@ -696,41 +687,38 @@ int rx_task_front()
     int avgDist = 0;
     int distConcat = 0;
 
-    //while (1) {
-        const int rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZE, 100 / portTICK_RATE_MS);
-        if (rxBytes > 0) {
-            data[rxBytes] = 0;
-            //ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
-            //ESP_LOG_BUFFER_HEXDUMP(RX_TASK_TAG, data, rxBytes, ESP_LOG_INFO);
-            //printf("%s\n", data);
-            //ESP_LOGI("test: ", "result: %s\n", data);
-            int i;
-            int distCounter = 0;
+    //read raw input
+    const int rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZE, 100 / portTICK_RATE_MS);
 
-            for (i = 0; i < rxBytes; i++) {
-                if (data[i] == 0x59 && data[i+1] == 0x59) {
-                    break;
-                }
+    //if got data back
+    if (rxBytes > 0) {
+        data[rxBytes] = 0;
+
+        int i;
+        int distCounter = 0;
+
+        //scan for first instance of 2 0x59 bytes in a row (data header)
+        for (i = 0; i < rxBytes; i++) {
+            if (data[i] == 0x59 && data[i+1] == 0x59) {
+                break;
             }
+        }
 
-            for (i+=2; i < rxBytes; i+= 9) {
-                //ESP_LOGI(RX_TASK_TAG, "Lower byte %d: %x", i, data[i]);
-                //ESP_LOGI(RX_TASK_TAG, "Higher byte %d: %x", i, data[i+1]);
-                distConcat = (((uint16_t)data[i+1] << 8) | data[i]);
-                avgDist += distConcat;
-                distCounter++;
+        //until the end of the data stream, read the 3rd and 4th byte in every 9 bytes (distance data)
+        for (i+=2; i < rxBytes; i+= 9) {
 
-                //ESP_LOGI(RX_TASK_TAG, "Distance: %d", distConcat);
-            }
-
-            avgDist /= distCounter;
-
-            //ESP_LOGI(RX_TASK_TAG, "Distance: %d", avgDist);
+            distConcat = (((uint16_t)data[i+1] << 8) | data[i]);
+            avgDist += distConcat;
+            distCounter++;
 
         }
 
-        //vTaskDelay(100/portTICK_RATE_MS);
-    //}
+        avgDist /= distCounter;
+
+        //ESP_LOGI(RX_TASK_TAG, "Distance: %d", avgDist);
+
+    }
+
     free(data);
 
     return avgDist;
@@ -744,46 +732,39 @@ int rx_task_side()
     int avgDist = 0;
     int distConcat = 0;
 
-    //while (1) {
-        const int rxBytes = uart_read_bytes(UART_NUM_2, data, RX_BUF_SIZE, 100 / portTICK_RATE_MS);
-        if (rxBytes > 0) {
-            data[rxBytes] = 0;
-            //ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
-            //ESP_LOG_BUFFER_HEXDUMP(RX_TASK_TAG, data, rxBytes, ESP_LOG_INFO);
-            //printf("%s\n", data);
-            //ESP_LOGI("test: ", "result: %s\n", data);
-            int i;
-            int distCounter = 0;
+    const int rxBytes = uart_read_bytes(UART_NUM_2, data, RX_BUF_SIZE, 100 / portTICK_RATE_MS);
 
-            //scan for first instance of 2 0x59 bytes in a row (data header)
-            for (i = 0; i < rxBytes; i++) {
-                if (data[i] == 0x59 && data[i+1] == 0x59) {
-                    break;
-                }
+    if (rxBytes > 0) {
+        data[rxBytes] = 0;
+
+        int i;
+        int distCounter = 0;
+
+        //scan for first instance of 2 0x59 bytes in a row (data header)
+        for (i = 0; i < rxBytes; i++) {
+            if (data[i] == 0x59 && data[i+1] == 0x59) {
+                break;
             }
+        }
 
-            //until the end of the data stream, read the 3rd and 4th byte in every 9 bytes (distance data)
-            for (i+=2; i < rxBytes; i+= 9) {
-                //ESP_LOGI(RX_TASK_TAG, "Lower byte %d: %x", i, data[i]);
-                //ESP_LOGI(RX_TASK_TAG, "Higher byte %d: %x", i, data[i+1]);
+        //until the end of the data stream, read the 3rd and 4th byte in every 9 bytes (distance data)
+        for (i+=2; i < rxBytes; i+= 9) {
 
-                //concatenate 3rd and 4th bytes into a distance value (cm)
-                distConcat = (((uint16_t)data[i+1] << 8) | data[i]);
-                avgDist += distConcat;
-                distCounter++;
-
-                //ESP_LOGI(RX_TASK_TAG, "Distance: %d", distConcat);
-            }
-
-            avgDist /= distCounter;
-
-            //ESP_LOGI(RX_TASK_TAG, "Distance: %d", avgDist);
+            //concatenate 3rd and 4th bytes into a distance value (cm)
+            distConcat = (((uint16_t)data[i+1] << 8) | data[i]);
+            avgDist += distConcat;
+            distCounter++;
 
         }
 
-        //vTaskDelay(100/portTICK_RATE_MS);
-    //}
+        avgDist /= distCounter;
+
+        //ESP_LOGI(RX_TASK_TAG, "Distance: %d", avgDist);
+
+    }
+
     free(data);
+
     return avgDist;
 }
 
@@ -856,14 +837,8 @@ void calibrateESC() {
  */
 void drive_control(void *arg)
 {
-    //uint32_t angle, count;
 
     while (running) {
-        //for (count = 0; count < DRIVE_MAX_DEGREE; count++) {
-        //count = 180;
-        //    printf("Angle of rotation: %d\n", count);
-        //    angle = drive_per_degree_init(count);
-        //    printf("pulse width: %dus\n", angle);
 
         mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, drive_duty);
 
@@ -881,11 +856,12 @@ void drive_control(void *arg)
 
         //printf("Front dist: %d; Side dist: %d\n", avgDistFront, avgDistSide);
 
-        //if (avgDist < 90) {
-        //    break;
-        //}
+        //UNCOMMENT THIS TO MAKE THE CRAWLER STOP BEFORE THE WALL
+        /*
+        if (avgDistFront < 90) {
+            break;
+        }*/
 
-        //}
     }
 
     mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 1400);
@@ -903,18 +879,13 @@ void steering_control(void *arg)
 
     while (running) {
 
-        //for (count = 0; count < STEERING_MAX_DEGREE; count++) {
-            //printf("Angle of rotation: %d\n", count);
-            angle = steering_per_degree_init(angle_duty);
+        angle = steering_per_degree_init(angle_duty);
 
-            int avgDistSide = rx_task_side();
+        int avgDistSide = rx_task_side();
 
-            //printf("pulse width: %dus\n", angle);
-            mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
+        mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
 
-            vTaskDelay(100/portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
-        //}
-
+        vTaskDelay(100/portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
 
     }
 
@@ -1076,11 +1047,11 @@ void app_main(void)
     wifi_init_sta();
     udp_init();
 
-    // I2C startup routine
+    // I2C display startup routine
     i2c_master_init();
     i2c_scanner();
     alpha_init();
-    alpha_write(0.0); //set default speed to 0
+    alpha_write(0.0); //set default speed reading to 0
 
     timer_queue = xQueueCreate(10, sizeof(timer_event_t));
     example_tg0_timer_init(TIMER_0, TEST_WITHOUT_RELOAD, TIMER_INTERVAL0_SEC);
@@ -1092,21 +1063,18 @@ void app_main(void)
     printf("Calibrating motors...");
     calibrateESC();
 
-    //xTaskCreate(rx_task, "uart_rx_task", 1024*2, NULL, configMAX_PRIORITIES, NULL);
-    //xTaskCreate(tx_task, "uart_tx_task", 1024*2, NULL, configMAX_PRIORITIES-1, NULL);
-
+    //wait for "start" signal from Node.js UDP server
     printf("Waiting for start signal...\n");
     udp_client_send("Test message");
-    xTaskCreate(udp_client_receive, "udp_client_receive", 4096, NULL, 6, NULL);
-
+    xTaskCreate(udp_client_receive, "udp_client_receive", 4096, NULL, 6, NULL); //also used later for getting stop signal
     while (!running) {
         vTaskDelay(100/portTICK_RATE_MS);
     }
 
     printf("Starting up!");
 
+    //start up driving tasks
     xTaskCreate(steering_control, "steering_control", 4096, NULL, 5, NULL);
     xTaskCreate(drive_control, "drive_control", 4096, NULL, 4, NULL);
     xTaskCreate(timer_example_evt_task, "timer_evt_task", 2048, NULL, 3, NULL);
-    //xTaskCreate(pcnt_test_task, "pcnt_test_task", 2048, NULL, 2, NULL);
 }
