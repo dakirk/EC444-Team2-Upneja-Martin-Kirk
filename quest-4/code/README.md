@@ -8,3 +8,12 @@ If you're using the socket-tester UDP server from quest 3, you need to start tha
 Commands:
 * start - starts the rover
 * stop - stops the rover (cannot be restarted)
+
+Roles:
+- Kyle Martin: PID control & Calibration
+- David Kirk: Sensors & Actuation
+- Ayush Upneja: Socket Connection & LIDAR setup
+
+Relevant Files:
+- quest-3/code/socket-tester: used to send messages to the ESP32
+- crawler-control/main/crawler-control.c: main ESP file
