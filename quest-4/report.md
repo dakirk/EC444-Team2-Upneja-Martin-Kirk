@@ -59,7 +59,7 @@ To control the crawler wirelessly, we connected a node.js server to the ESP32 th
 
 ## Supporting Artifacts
 - [Link to repo]()
-- [Link to video demo]()
+- [Link to video demo](https://www.youtube.com/watch?v=4e3qMkAvSgg&feature=youtu.be)
 
 
 ## Investigative Question
