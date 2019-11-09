@@ -20,6 +20,8 @@ In this quest, we implemented autonomous control into a crawler issued by EC444.
 
 ### Circuit
 
+In this crawler, everything is powered off of the 7.2V battery. The ESP32 is powered from the 5V output line of the electronic speed control unit (ESC), as are the microlidars and the steering servo. The 14-segment display is powered off 3.3V from the ESP32, and all devices share a common ground. For communication, the PWM line on the steering servo is upscaled to 5V through an H-bridge from a GPIO pin on the ESP32, while the PWM pin on the ESC is connected directly to a GPIO pin without any upscaling. Both microlidars have their RX and TX lines connected to GPIOs for UART communication, and the 14-segment display has its SDA and SCL lines connected to the desegnated pins on the controller for I2C communication.
+
 ### Reading from Sensors
 
 The microlidars output 9-byte hexadecimal values, where the first two bytes are equal to 0x59 and the following two bytes correspond to the distance.  To read the hexdump from the microlidar, every time we read two 0x59s in a row, we read the next two bytes into a single 16 bit value.  This value corresponded to the distance from the wall in centimeters.
