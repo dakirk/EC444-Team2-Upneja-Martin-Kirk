@@ -1,11 +1,6 @@
-/* UART asynchronous example, that uses separate RX and TX tasks
+//This is base code for controlling the hub and fob. We will probably need two different programs because of their differing purposes.
+//NOTE: the delay on the RX loop must be SHORTER than the delay on the TX loop, or else the RX loop will receive multiple messages jammed together in the same buffer.
 
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
@@ -37,6 +32,8 @@ int ledCounter = 0; //0 off, 1 red, 2 blue, 3 green
 /*
  * @brief RMT transmitter initialization
  */
+
+//Sets up the 38kHz signal for IR transmission
 static void nec_tx_init(void)
 {
     rmt_config_t rmt_tx;
@@ -46,7 +43,7 @@ static void nec_tx_init(void)
     rmt_tx.clk_div = RMT_CLK_DIV;
     rmt_tx.tx_config.loop_en = false;
     rmt_tx.tx_config.carrier_duty_percent = 50;
-    rmt_tx.tx_config.carrier_freq_hz = 38000;
+    rmt_tx.tx_config.carrier_freq_hz = 38000; //IMPORTANT PART?
     rmt_tx.tx_config.carrier_level = 1;
     rmt_tx.tx_config.carrier_en = 1;
     rmt_tx.tx_config.idle_level = 1;
@@ -67,7 +64,7 @@ void led_init(void) {
 }
 
 
-void init(void) {
+void uart_init(void) {
     const uart_config_t uart_config = {
         .baud_rate = 2400,
         .data_bits = UART_DATA_8_BITS,
@@ -83,6 +80,7 @@ void init(void) {
     uart_driver_install(UART_NUM_1, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
 }
 
+//Single-use function to send data over IR UART
 int sendData(const char* logName, const char* data)
 {
     const int len = strlen(data);
@@ -97,6 +95,13 @@ static void tx_task(void *arg)
     esp_log_level_set(TX_TASK_TAG, ESP_LOG_INFO);
     while (1) {
 
+        //Send ID and unlock code from here
+
+        char* formattedMSG = "0 exampleunlockcode";
+
+        sendData(TX_TASK_TAG, formattedMSG);
+
+        /*
         if (ledCounter == 0) {
             sendData(TX_TASK_TAG, "off");
         } else if (ledCounter == 1) {
@@ -112,9 +117,9 @@ static void tx_task(void *arg)
         } else {
             ledCounter++;
         }
-
+        */
         
-        vTaskDelay(500 / portTICK_PERIOD_MS);
+        vTaskDelay(200 / portTICK_PERIOD_MS);
 
     }
 }
@@ -133,6 +138,9 @@ static void rx_task(void *arg)
 
             printf("%s\n", data);
 
+            //Incoming data analysis here
+
+            /*
             if (strcmp((char*)data, "red") == 0) {
                 gpio_set_level(RED_LED, 1);
                 gpio_set_level(BLU_LED, 0);
@@ -150,31 +158,17 @@ static void rx_task(void *arg)
                 gpio_set_level(BLU_LED, 0);
                 gpio_set_level(GRN_LED, 0);
             }
-            //ESP_LOGI("test: ", "result: %s\n", data);
-            /*int i;
+            */
 
-            for (i = 0; i < rxBytes; i++) {
-                if (data[i] == 0x59 && data[i+1] == 0x59) {
-                    break;
-                }
-            }
-
-            for (i+=2; i < rxBytes; i+= 9) {
-                //ESP_LOGI(RX_TASK_TAG, "Lower byte %d: %x", i, data[i]);
-                //ESP_LOGI(RX_TASK_TAG, "Higher byte %d: %x", i, data[i+1]);
-                int distConcat = (((uint16_t)data[i+1] << 8) | data[i]);
-                ESP_LOGI(RX_TASK_TAG, "Distance: %d", distConcat);
-            }*/
         }
 
-        vTaskDelay(100/portTICK_RATE_MS);
     }
     free(data);
 }
 
 void app_main(void)
 {
-    init();
+    uart_init();
     led_init();
     nec_tx_init();
     xTaskCreate(rx_task, "uart_rx_task", 1024*2, NULL, configMAX_PRIORITIES, NULL);
