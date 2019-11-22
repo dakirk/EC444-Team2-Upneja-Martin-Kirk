@@ -12,7 +12,7 @@
 
 static const int RX_BUF_SIZE = 1024;
 
-#define FOB_ID "dkirk"
+#define FOB_ID "aupneja"
 #define PASSWD "smartkey"
 
 #define RMT_PIN (GPIO_NUM_26) //A0

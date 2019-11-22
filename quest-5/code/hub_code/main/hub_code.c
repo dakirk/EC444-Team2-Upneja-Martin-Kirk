@@ -184,8 +184,14 @@ static void udp_client_receive() {
                 //ESP_LOGI(TAG, "%s", rx_buffer);
                 printf("received string: %s\n", rx_buffer);
 
-                if (strcmp((char*)rx_buffer, "unlocked") == 0) {
+                if (strcmp((char*)rx_buffer, "unlock") == 0) {
+                    printf("unlocking...\n");
                     sendData("TX_TASK", "unlocked");
+                    /*
+                    gpio_set_level(GRN_LED, 1);
+                    vTaskDelay(1000/portTICK_RATE_MS);
+                    gpio_set_level(GRN_LED, 0);
+                    */
                 }
 
                 /*
