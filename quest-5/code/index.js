@@ -32,79 +32,49 @@ var db = new Engine.Db('.', {});
 var users = db.collection("users_v4");
 var logs = db.collection("logs");
 
-// Create readstream
-//const readInterface = readline.createInterface({
-//    input: fs.createReadStream('users.txt'),
-    //output: process.stdout,
-//    console: false
-//});
-
-// Read each line
-//readInterface.on('line', function(line) {
-//    if (count == 0) {
-//      header = line.split("\t");
-//      count = count + 1;
-//    } else {
-//      var vals = line.split("\t");
-//      var data = {};
-//      data[header[0]] = vals[0];
-//      data[header[1]] = vals[1];
-      // Insert data
-//      console.log(data);
-//      users.insert(data);
-//    }
-//});
 // Publish HTML file
 app.get('/', function(req, res){
-  res.sendFile(__dirname + '/index.html');
+  res.sendFile(__dirname + '/main.html');
+});
+
+app.get('/logs', function(req, res){
+   logs.find().toArray(function(err, result) {
+     if (err) throw err;
+     res.send(result);
+   });
 });
 
 // Send sensor readings to frontend and write JSON to local file
 server.on('message', function (message, remote) {
-    // Send sensor data through TCP socket
-    var request = JSON.parse(message.toString());
-    // Update device port and host
-    devPORT = remote.port;
-    devHOST = remote.address;
-    // check if creds are valid,log the request, and send unlock message if creds are valid
-    //users.findOne({"fobID": "dkirk"}, function(err, item) {
-    //  if (item != undefined && code == item["code"]) {
-	//console.log(item);
-        //server.send("unlock",devPORT,devHOST,function(error){});
-        //var d = new Date(); 
-        //logs.insert({"name": item["name"], "fobID": request["fob_id"], "hubID": request["hub_id"], "timestamp": d.toLocaleString(), "access": "granted"});
-        //io.emit("message", logs);
-      //} else {
-	//console.log("undefined");
-        //var d = new Date(); 
-        //logs.insert({"name": "unknown", "fobID": request["fob_id"], "hubID": request["hub_id"], "timestamp": d.toLocaleString(), "access": "denied"});
-        //io.emit("message", logs);
-      //}
-    //})
+  // Parse message into JSON object 
+  var request = JSON.parse(message.toString());
+  // Update device port and host
+  devPORT = remote.port;
+  devHOST = remote.address;
+  // Query the fobID in the user database
   users.findOne({"fobID": request["fob_id"]}, function(err, item) {
+    // if fobID and code are valid
     if (request["code"] == code && item != null) { 
-      server.send("unlock",devPORT,devHOST,function(error){});
+      server.send("granted",devPORT,devHOST,function(error){});
       var d = new Date();
       var info = {"name": item["name"], "fobID": request["fob_id"], "hubID": request["hub_id"], "timestamp": d.toLocaleString(), "access": "granted"}; 
+      // log new key access request
       logs.insert(info);
-      logs.find().toArray(function(err, result) {
-        if (err) throw err;
-        console.log(result);
-	io.emit("message", result);
-      });
+      console.log(info);
+      io.emit("message", info);
+    // if fobID and code are invalid
     } else {
+      server.send("denied",devPORT,devHOST,function(error){});
       var d = new Date();
       if (item == null) { 
         var info = {"name": "unknown", "fobID": request["fob_id"], "hubID": request["hub_id"], "timestamp": d.toLocaleString(), "access": "denied"};
       } else {
         var info = {"name": item["name"], "fobID": request["fob_id"], "hubID": request["hub_id"], "timestamp": d.toLocaleString(), "access": "denied"};
       }
+      // log new key access request
       logs.insert(info);
-      logs.find().toArray(function(err, result) {
-        if (err) throw err;
-        console.log(result);
-        io.emit("message", result);
-      });
+      console.log(info);
+      io.emit("message", info);
     }
   })
 });
