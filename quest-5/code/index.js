@@ -54,15 +54,10 @@ var logs = db.collection("logs");
 //      users.insert(data);
 //    }
 //});
-users.findOne({"fobID": "hjackson"}, function(err, item) {
-  console.log(item);
-})
-users.findOne({"fobID": "kmartin"}, function(err, item) {
-  console.log(item["name"]);
-})
-users.findOne({"fobID": "aupneja"}, function(err, item) {
-  console.log(item["name"]);
-})
+// Publish HTML file
+app.get('/', function(req, res){
+  res.sendFile(__dirname + '/index.html');
+});
 
 // Send sensor readings to frontend and write JSON to local file
 server.on('message', function (message, remote) {
@@ -92,8 +87,11 @@ server.on('message', function (message, remote) {
       var d = new Date();
       var info = {"name": item["name"], "fobID": request["fob_id"], "hubID": request["hub_id"], "timestamp": d.toLocaleString(), "access": "granted"}; 
       logs.insert(info);
-      io.emit("message", info);
-      console.log(info);
+      logs.find().toArray(function(err, result) {
+        if (err) throw err;
+        console.log(result);
+	io.emit("message", result);
+      });
     } else {
       var d = new Date();
       if (item == null) { 
@@ -102,7 +100,11 @@ server.on('message', function (message, remote) {
         var info = {"name": item["name"], "fobID": request["fob_id"], "hubID": request["hub_id"], "timestamp": d.toLocaleString(), "access": "denied"};
       }
       logs.insert(info);
-      console.log(info);
+      logs.find().toArray(function(err, result) {
+        if (err) throw err;
+        console.log(result);
+        io.emit("message", result);
+      });
     }
   })
 });
