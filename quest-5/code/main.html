@@ -1,0 +1,121 @@
+ <!DOCTYPE HTML>
+<html>
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.6/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-table/1.10.1/bootstrap-table.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.6/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-table/1.10.1/bootstrap-table.min.js"></script>
+<script>
+window.onload = function () {
+	//get request xhr variable
+
+	var xhrOnLoad = new XMLHttpRequest();
+	var xhrAddPoint = new XMLHttpRequest();
+	//using response from get request, set chart contents
+	xhrOnLoad.onreadystatechange = function() {
+	    if (this.readyState == 4 && this.status == 200) {
+		var dataText = JSON.parse(xhrOnLoad.responseText);
+		document.getElementById("exampleFormControlTextarea1").innerHTML = JSON.stringify(dataText.slice(dataText.length-30,dataText.length).reverse());
+		console.log(dataText);
+		console.log(dataText[0]);
+		console.log(dataText[0].name);
+		console.log(dataText.length);
+}
+	};
+	//send get request for file data
+    xhrOnLoad.open("GET", '/logs', true);
+	xhrOnLoad.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+	xhrOnLoad.send();
+    //repeat this function every second to update chart data
+var socket = io();
+	socket.on('message', function(msg){
+		    document.getElementById("exampleFormControlTextarea1").value = JSON.stringify(msg)+document.getElementById("exampleFormControlTextarea1").value;
+});
+
+    }
+</script>
+</head>
+<body>
+<div id="chartContainer" class="row justify-content-center align-items-center" style="height: 50vh; width: 100%;">
+    <div class="col">
+    </div>
+    <div class="col justify-content-center">
+           <div class="form-group">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+    <label for="exampleFormControlTextarea1">Fob Unlock Logs</label>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;    <textarea class="form-control" id="exampleFormControlTextarea1" rows="3"></textarea>
+  </div>    
+        </div>
+    
+</div>
+<br />
+<br />  
+<script>
+function find() {
+	console.log("Device Pinged!");
+}
+function waterSubmit() {
+	if (document.getElementById("example-number-input").value > 0) {
+		console.log(document.getElementById("example-number-input").value);
+	} else {
+		alert("Please enter a valid input!");
+	}
+}
+$   (document).ready(function() {
+    //set initial state.
+    $('#steps').change(function() {
+        if($(this).is(":checked")) {
+            console.log("Steps ON");
+						const Http = new XMLHttpRequest();
+						console.log("1");
+						const url='http://localhost:3000/vibration';
+						console.log("2");
+						Http.open("POST", url);
+						console.log("3");
+						Http.setRequestHeader("Content-Type", "application/json");
+						console.log("4");
+						Http.send(JSON.stringify({"state": "1"}));
+						console.log("5");
+						Http.onreadystatechange = (e) => {
+							  console.log("Http");
+							}
+        }
+				else {
+					console.log("Steps OFF");
+				}
+    });
+		$('#battery').change(function() {
+				if($(this).is(":checked")) {
+						console.log("Battery ON");
+				}
+				else {
+					console.log("Battery OFF");
+				}
+		});
+		$('#temp').change(function() {
+				if($(this).is(":checked")) {
+						console.log("Temp ON");
+				}
+				else {
+					console.log("Temp OFF");
+				}
+		});
+		$('#water').change(function() {
+				if($(this).is(":checked")) {
+						console.log("Water ON");
+				}
+				else {
+					console.log("Water OFF");
+				}
+		});
+});
+</script>
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/js/bootstrap4-toggle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-table/1.10.1/bootstrap-table.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
+
+</body>
+</html>
