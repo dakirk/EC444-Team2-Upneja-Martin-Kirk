@@ -6,8 +6,8 @@ var stdin = process.stdin;
 var PORT = 3333;
 var HOST = '192.168.1.101'//'192.168.43.119';
 
-var remoteport = 8080;
-var remoteaddress = '123.456.7.890';
+var remoteport = 3333;
+var remoteaddress = '192.168.1.129';
 
 // Create socket
 var server = dgram.createSocket('udp4');
@@ -61,7 +61,7 @@ stdin.on('data', function(data) {
       }
 	});
 
-	//console.log("ip: " + remoteaddress + ":" + remoteport);
+	console.log("ip: " + remoteaddress + ":" + remoteport);
 
 });
 
