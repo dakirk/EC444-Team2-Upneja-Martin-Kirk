@@ -16,8 +16,7 @@ Authors: Kyle Martin, Ayush Upneja, David Kirk
 For explanation purposes, anything in brackets is a placeholder for real data.
 
 ### Circuit/Hardware
-
-CIRCUIT DIAGRAM HERE
+![Circuit diagram](images/ir-circuit-diagram.png)
 
 We used the same circuit as described in the IR RX/TX skill for both the fob and the hub. We changed a few of the pin assignments for convenience, but otherwise the circuits are identical. In it, the ESP32 generates a 38kHz signal and a UART signal, which are combined using an H-bridge and transmitted through an IR LED. The IR receiver is connected directly to a GPIO input. The button is wired with a 10kΩ pull-up resistor and is also connected to a GPIO input. The 3 colored LEDs are connected to GPIO outputs through 220Ω current-limiting resistors.
 
