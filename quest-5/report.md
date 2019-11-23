@@ -77,8 +77,8 @@ In the front-end we pull the 30 most recent database entries and reverse the ord
 
 ## Sketches and Photos
 
-![Image](./image/IMG_4092.JPG)
-![Image](./image/IMG_4095.JPG)
+![Image](./image/chart.png)
+![Image](./image/board.png)
 
 ## Supporting Artifacts
 
