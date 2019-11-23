@@ -62,7 +62,7 @@ If it receives "granted", it lights its green LED for a second and transmits "un
 
 ## Supporting Artifacts
 - [Link to repo]()
-- [Link to video demo]()
+- [Link to video demo](https://www.youtube.com/watch?v=KUql92ul6p4)
 
 
 ## References
