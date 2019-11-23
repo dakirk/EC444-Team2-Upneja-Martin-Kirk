@@ -4,12 +4,15 @@ Authors: Kyle Martin, Ayush Upneja, David Kirk
 2019-11-22
 
 ## Summary
-
-
+In this quest, we developed a security hub that recieves key access requests through IR communication.  These requests are sent to server and are either approved or denied based off of information in the users database.  All requests to the server are logged.
 
 ## Evaluation Criteria
 
-
+- Fob relays {fob_ID,code} to security hub, hub sends {fob_ID,hub_ID,code} to server; server responds to fob, fob green light turns on.
+- Logs fob accesses to database {fob_ID,hub_ID,person,time,location}
+- Database is on RPi
+- Web-based management interface shows real-time active unlocked fobs and history of unlocked fobs (with actual time of unlock).
+- Uses at least 3 fobs with unique IDs
 
 ## Solution Design
 
