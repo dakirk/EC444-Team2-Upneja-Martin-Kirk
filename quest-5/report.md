@@ -75,6 +75,17 @@ In the front-end we pull the 30 most recent database entries and reverse the ord
 
 ![Front End](images/frontend.png)
 
+### Investigative Question
+
+Comment on the security of your system. How would you best hack into this system if you were so inclined? How could you prevent this attack? Describe the steps.
+
+This system is incredibly insecure. You could hack into this system by ___
+
+
+- One way we could prevent this attack is by creating our own hashing algorithm and storing userIDs only in their hashed form. Thus it is decrypted by the hub and no one could gain access to the decrypted version unless they gained access to the hashing function.
+
+- Another way to prevent this type of attack is to use a hopping or rolling code. Both the fob and the hub would use the same random number generator (RNG). When the fob sends a code, it uses the RNG to pick a new code which is stored in memory. Then when the hub receives a valid code, it uses the same RNG to generate a new one. Thus they are completely in sync and it would be very difficult for someone to mimic the random number generator.
+
 ## Sketches and Photos
 
 ![Image](./image/IMG_4092.JPG)
