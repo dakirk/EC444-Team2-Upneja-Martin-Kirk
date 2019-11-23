@@ -37,6 +37,7 @@ Both of the above values are hardcoded. In a parallel task, the fob also listens
 unlock
 ```
 If it receives an unlock message, it lights its green LED.
+
 #### Hub
 
 The hub listens for an incoming IR UART transmission beginning with the string "hub:". It also connects to wifi and sets up UDP communication using methods and libraries we've used in previous quests. Once it recognizes a valid IR message, it reformats this message into JSON of the following format, adding its own ID, and transmits it over UDP to the server:
@@ -74,17 +75,11 @@ In the front-end we pull the 30 most recent database entries and reverse the ord
 
 ![Front End](images/frontend.png)
 
-
-
 ## Sketches and Photos
-<center><img src="./images/example.png" width="70%" /></center>  
-<center> </center>
-
 
 ## Supporting Artifacts
 - [Link to repo]()
 - [Link to video demo](https://www.youtube.com/watch?v=KUql92ul6p4)
-
 
 ## References
 
