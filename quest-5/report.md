@@ -95,9 +95,10 @@ This system is incredibly insecure. You could hack into this system by:
 
 To prevent attacks, we could implement the following strategies:
 
-- One way we could prevent this attack is by creating our own hashing algorithm and storing userIDs only in their hashed form. Thus it is decrypted by the hub and no one could gain access to the decrypted version unless they gained access to the hashing function.
-
-- Another way to prevent this type of attack is to use a hopping or rolling code. Both the fob and the hub would use the same random number generator (RNG). When the fob sends a code, it uses the RNG to pick a new code which is stored in memory. Then when the hub receives a valid code, it uses the same RNG to generate a new one. Thus they are completely in sync and it would be very difficult for someone to mimic the random number generator.
+- One way we could prevent this attack is by creating our own hashing algorithm and storing user IDs only in their hashed form. Thus it is decrypted by the hub and no one could gain access to the decrypted version unless they gained access to the hashing function.
+- Another way to prevent this type of attack is to use a hopping or rolling code. Both the fob and the hub would use the same random number generator (RNG). When the fob sends a code, it uses the RNG to pick a new code which is stored in memory. Then when the hub receives a valid code, it uses the same RNG to generate a new one. Thus they are completely in sync and it would be very difficult for someone to mimic the random number generator. We could also use the same mechanism to prevent a hacker from imitating the "granted" response to unlock the hub.
+- We could also remove user IDs from the web page, so that no login credentials are easily visible to attackers.
+- To make it more difficult to imitate the "granted" response, we could replace the UDP connection with a wired connection, and embed the system in a wall.
 
 ## Sketches and Photos
 
