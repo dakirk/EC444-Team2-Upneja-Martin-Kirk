@@ -82,8 +82,18 @@ In the front-end we pull the 30 most recent database entries and reverse the ord
 
 Comment on the security of your system. How would you best hack into this system if you were so inclined? How could you prevent this attack? Describe the steps.
 
-This system is incredibly insecure. You could hack into this system by ___
+This system is incredibly insecure. You could hack into this system by:
 
+- Inserting an IR receiver next to a fob and reading the id and password coming from it, and then flashing a new fob with those same credentials and using it
+- Listening to network traffic with a tool like Wireshark to retrieve the same information
+- Sending the string "granted" over UDP directly to the hub
+- Guessing password with common dictionary words and using one of the usernames visible from the database contents on the web page
+- Logging directly into the Pi using the default username and password and reading the database and server code as admin to obtain credentials
+- Stealing the SD card on the Pi and reading it directly with another computer to obtain credentials
+
+
+
+To prevent attacks, we could implement the following strategies:
 
 - One way we could prevent this attack is by creating our own hashing algorithm and storing userIDs only in their hashed form. Thus it is decrypted by the hub and no one could gain access to the decrypted version unless they gained access to the hashing function.
 
