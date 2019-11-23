@@ -54,6 +54,11 @@ If it receives "granted", it lights its green LED for a second and transmits "un
 
 ### Frontend
 
+In the front-end we pull the 30 most recent database entries and reverse the order of them so that the most recent entries are at the top. The data comes in a string format which is JSON parsed to display individual lines better. Here through a socket, every time a new datapoint is registered in the database, it is added to the top of the textarea so that the most recent unlocks are clearly displayed. Here is a picture of our frontend to display exactly how this looks.
+
+![Front End](images/frontend.png)
+
+
 
 ## Sketches and Photos
 <center><img src="./images/example.png" width="70%" /></center>  
