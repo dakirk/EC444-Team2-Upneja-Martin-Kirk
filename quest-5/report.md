@@ -52,6 +52,22 @@ If it receives "granted", it lights its green LED for a second and transmits "un
 
 ### Backend/Database
 
+The backend is comprised of three components: a node.js file, a TingoDB database for users, and a TingoDB database for logs.  The users database held three preset entries, one for each fob that we used.  They are listed as follows.
+```
+{name: "Kyle Martin", fobID: "kmartin"}
+{name: "Ayush Upneja", fobID: "aupneja"}
+{name: "David Kirk", fobID: "dkirk"}
+```
+Requests from the security hub are sent to the server through a UDP socket.  Upon recieving these messages, the server queries the user database to check if the user exists.  If so, the server then compares the code sent through the UDP message with the password stored in the server.  If these two codes match then the string "granted" is sent back through the socket.  The key access log is then formed, inserted into the database, and sent to the frontend using a TCP socket.  An example of a successful log is shown below.
+```
+{name: "Kyle Martin", fobID: "kmartin", hubID: "Table_1", Timestamp: "11/22/19 12:20:19", access: "granted"}
+```
+If the fob ID query fails or if the codes do not match, the server sends the string "denied".  The log is formed, inserted into the logs database, and sent to frontend using TCP.  An example of an unsuccessful log is shown below.
+```
+{name: "unknown", fobID: "bob_the_builder", hubID: "Table_1", Timestamp: "11/22/19 12:20:19", access: "denied"}
+```
+The server also implements an HTTP GET request that can be used to obtain all logs in the database.
+
 ### Frontend
 
 In the front-end we pull the 30 most recent database entries and reverse the order of them so that the most recent entries are at the top. The data comes in a string format which is JSON parsed to display individual lines better. Here through a socket, every time a new datapoint is registered in the database, it is added to the top of the textarea so that the most recent unlocks are clearly displayed. Here is a picture of our frontend to display exactly how this looks.
