@@ -88,8 +88,8 @@ This system is incredibly insecure. You could hack into this system by ___
 
 ## Sketches and Photos
 
-![Image](./image/chart.png)
-![Image](./image/board.png)
+![Image](./images/chart.png)
+![Image](./images/board.png)
 
 ## Supporting Artifacts
 
