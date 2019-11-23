@@ -184,22 +184,23 @@ static void udp_client_receive() {
                 //ESP_LOGI(TAG, "%s", rx_buffer);
                 printf("received string: %s\n", rx_buffer);
 
-                if (strcmp((char*)rx_buffer, "unlock") == 0) {
+                gpio_set_level(BLU_LED, 0);
+
+                //detects unlock signal
+                if (strcmp((char*)rx_buffer, "granted") == 0) {
                     printf("unlocking...\n");
                     sendData("TX_TASK", "unlocked");
-                    /*
+                    
                     gpio_set_level(GRN_LED, 1);
                     vTaskDelay(1000/portTICK_RATE_MS);
                     gpio_set_level(GRN_LED, 0);
-                    */
-                }
+                } else {
+                    printf("denied!\n");
 
-                /*
-                if (strstr(rx_buffer, "start") != NULL) { //0 if equal
-                    running = true;
-                } else if (strstr(rx_buffer, "stop") != NULL) {
-                    running = false;
-                }*/
+                    gpio_set_level(RED_LED, 1);
+                    vTaskDelay(1000/portTICK_RATE_MS);
+                    gpio_set_level(RED_LED, 0);
+                }
 
             }
 
@@ -255,6 +256,8 @@ static void nec_tx_init(void)
 }
 
 void led_init(void) {
+
+    //init all LEDs
     gpio_pad_select_gpio(RED_LED);
     gpio_pad_select_gpio(BLU_LED);
     gpio_pad_select_gpio(GRN_LED);
@@ -290,41 +293,6 @@ int sendData(const char* logName, const char* data)
     return txBytes;
 }
 
-static void tx_task(void *arg)
-{
-    static const char *TX_TASK_TAG = "TX_TASK";
-    esp_log_level_set(TX_TASK_TAG, ESP_LOG_INFO);
-    while (1) {
-
-        //Send ID and unlock code from here
-
-        char* formattedMSG = "0 exampleunlockcode";
-
-        sendData(TX_TASK_TAG, formattedMSG);
-
-        /*
-        if (ledCounter == 0) {
-            sendData(TX_TASK_TAG, "off");
-        } else if (ledCounter == 1) {
-            sendData(TX_TASK_TAG, "red");
-        } else if (ledCounter == 2) {
-            sendData(TX_TASK_TAG, "blue");
-        } else if (ledCounter == 3) {
-            sendData(TX_TASK_TAG, "green");
-        } 
-
-        if (ledCounter >= 3) {
-            ledCounter = 0;
-        } else {
-            ledCounter++;
-        }
-        */
-        
-        vTaskDelay(200 / portTICK_PERIOD_MS);
-
-    }
-}
-
 static void rx_task(void *arg)
 {
     static const char *RX_TASK_TAG = "RX_TASK";
@@ -354,36 +322,13 @@ static void rx_task(void *arg)
                    split[++i] = strtok(NULL, " ");
                 }
 
-                sprintf(udpBuf, "{\"fob_id\": \"%s\", \"hub_id\": \"%s\", \"code\": \"%s\"}", split[1], HUB_ID, split[2]);
+                if (i >= 2) {
+                    sprintf(udpBuf, "{\"fob_id\": \"%s\", \"hub_id\": \"%s\", \"code\": \"%s\"}", split[1], HUB_ID, split[2]);
+                    udp_client_send(udpBuf);
+                    gpio_set_level(BLU_LED, 1);
+                }
 
-                udp_client_send(udpBuf);
-            } else {
-                gpio_set_level(RED_LED, 1);
-                vTaskDelay(1000/portTICK_RATE_MS);
-                gpio_set_level(RED_LED, 0);
             }
-
-            //Incoming data analysis here
-
-            /*
-            if (strcmp((char*)data, "red") == 0) {
-                gpio_set_level(RED_LED, 1);
-                gpio_set_level(BLU_LED, 0);
-                gpio_set_level(GRN_LED, 0);
-            } else if (strcmp((char*)data, "blue") == 0) {
-                gpio_set_level(RED_LED, 0);
-                gpio_set_level(BLU_LED, 1);
-                gpio_set_level(GRN_LED, 0);
-            } else if (strcmp((char*)data, "green") == 0) {
-                gpio_set_level(RED_LED, 0);
-                gpio_set_level(BLU_LED, 0);
-                gpio_set_level(GRN_LED, 1);
-            } else if (strcmp((char*)data, "off") == 0) {
-                gpio_set_level(RED_LED, 0);
-                gpio_set_level(BLU_LED, 0);
-                gpio_set_level(GRN_LED, 0);
-            }
-            */
 
         }
 
