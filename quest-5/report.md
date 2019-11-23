@@ -111,7 +111,7 @@ To prevent attacks, we could implement the following strategies:
 - [Link to video demo](https://www.youtube.com/watch?v=KUql92ul6p4)
 
 ## References
-
+- http://whizzer.bu.edu/briefs/design-patterns/dp-irtxrx
 -----
 
 ## Reminders
