@@ -12,7 +12,7 @@
 
 static const int RX_BUF_SIZE = 1024;
 
-#define FOB_ID "aupneja"
+#define FOB_ID "kmartin"
 #define PASSWD "smartkey"
 
 #define RMT_PIN (GPIO_NUM_26) //A0
@@ -57,10 +57,9 @@ static void interrupt_lock_task() {
     if (interrupt_enabled) {
         interrupt_enabled = 0; //disable interrupts during the following commands
 
+        //format and send new message
         char msgBuf[100];
-
         sprintf(msgBuf, "hub: %s %s", FOB_ID, PASSWD);
-
         sendData("TX_TASK", msgBuf);
 
         vTaskDelay(500/portTICK_RATE_MS);
@@ -78,33 +77,15 @@ static void gpio_task_example(void* arg)
     for(;;) {
         if(xQueueReceive(gpio_evt_queue, &io_num, portMAX_DELAY)) {
 
-
+            //separate task for interrupt action 
             xTaskCreate(interrupt_lock_task, "interrupt_lock_task", 4096, NULL, 5, NULL);
 
         }
     }
 }
 
-static void gpio_setup() {
-/*
-    printf("Checkpoint 1\n");
+static void btn_init() {
 
-    gpio_config_t io_conf;
-    //disable interrupt
-    io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
-    //set as output mode
-    io_conf.mode = GPIO_MODE_OUTPUT;
-    //bit mask of the pins that you want to set,e.g.GPIO18/19
-    //io_conf.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;
-    //disable pull-down mode
-    io_conf.pull_down_en = 0;
-    //disable pull-up mode
-    io_conf.pull_up_en = 0;
-    //configure GPIO with the given settings
-
-    printf("Checkpoint 2\n");
-    gpio_config(&io_conf);
-*/
     gpio_config_t io_conf;
     printf("Checkpoint 3\n");
 
@@ -203,41 +184,7 @@ int sendData(const char* logName, const char* data)
     return txBytes;
 }
 
-static void tx_task(void *arg)
-{
-    static const char *TX_TASK_TAG = "TX_TASK";
-    esp_log_level_set(TX_TASK_TAG, ESP_LOG_INFO);
-    while (1) {
-
-        //Send ID and unlock code from here
-
-        char* formattedMSG = "0 exampleunlockcode";
-
-        sendData(TX_TASK_TAG, formattedMSG);
-
-        /*
-        if (ledCounter == 0) {
-            sendData(TX_TASK_TAG, "off");
-        } else if (ledCounter == 1) {
-            sendData(TX_TASK_TAG, "red");
-        } else if (ledCounter == 2) {
-            sendData(TX_TASK_TAG, "blue");
-        } else if (ledCounter == 3) {
-            sendData(TX_TASK_TAG, "green");
-        } 
-
-        if (ledCounter >= 3) {
-            ledCounter = 0;
-        } else {
-            ledCounter++;
-        }
-        */
-        
-        vTaskDelay(200 / portTICK_PERIOD_MS);
-
-    }
-}
-
+//Loop to wait for and read data from IR receiver
 static void rx_task(void *arg)
 {
     static const char *RX_TASK_TAG = "RX_TASK";
@@ -245,6 +192,8 @@ static void rx_task(void *arg)
     uint8_t* data = (uint8_t*) malloc(RX_BUF_SIZE+1);
     while (1) {
         const int rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZE, 100 / portTICK_RATE_MS);
+
+        //if nonzero data
         if (rxBytes > 0) {
             data[rxBytes] = 0;
             ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
@@ -252,33 +201,13 @@ static void rx_task(void *arg)
 
             printf("%s\n", data);
 
+            //if unlock code, light up green LED
             if (strcmp((char*)data, "unlocked") == 0) {
                 gpio_set_level(GRN_LED, 1);
                 vTaskDelay(1000/portTICK_RATE_MS);
                 gpio_set_level(GRN_LED, 0);
             }
 
-            //Incoming data analysis here
-
-            /*
-            if (strcmp((char*)data, "red") == 0) {
-                gpio_set_level(RED_LED, 1);
-                gpio_set_level(BLU_LED, 0);
-                gpio_set_level(GRN_LED, 0);
-            } else if (strcmp((char*)data, "blue") == 0) {
-                gpio_set_level(RED_LED, 0);
-                gpio_set_level(BLU_LED, 1);
-                gpio_set_level(GRN_LED, 0);
-            } else if (strcmp((char*)data, "green") == 0) {
-                gpio_set_level(RED_LED, 0);
-                gpio_set_level(BLU_LED, 0);
-                gpio_set_level(GRN_LED, 1);
-            } else if (strcmp((char*)data, "off") == 0) {
-                gpio_set_level(RED_LED, 0);
-                gpio_set_level(BLU_LED, 0);
-                gpio_set_level(GRN_LED, 0);
-            }
-            */
 
         }
 
@@ -288,7 +217,7 @@ static void rx_task(void *arg)
 
 void app_main(void)
 {
-    gpio_setup();
+    btn_init();
     uart_init();
     led_init();
     nec_tx_init();
