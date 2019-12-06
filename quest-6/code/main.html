@@ -123,7 +123,7 @@ var imageNr = 0; // Serial number of current image
         img.onclick = imageOnclick;
         img.width = 512;
         img.height = 384;
-        img.src = "./?action=snapshot&n=" + (++imageNr);
+        img.src = "http://192.168.1.122:8080/?action=snapshot&n=" + (++imageNr);
         var webcam = document.getElementById("webcam");
 		window.info = document.getElementById('info').firstChild;
 		window.ravgFps = document.getElementById('ravgfps').firstChild;
@@ -222,7 +222,7 @@ Backward!
 </button>
   </div>
   <div class = "row justify-content-md-center" style="height:40vh; width:100vw; background-color:blue;">
-    <div id="webcam" style="width:512px;height:394px"><noscript><img src="./?action=snapshot" width="512px" height="384px" /></noscript></div>
+    <div id="webcam" style="width:512px;height:394px"><noscript><img src="http://192.168.1.122:8080/?action=snapshot" width="512px" height="384px" /></noscript></div>
   </div>
 </div>
 
