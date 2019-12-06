@@ -123,7 +123,7 @@ var imageNr = 0; // Serial number of current image
         img.onclick = imageOnclick;
         img.width = 512;
         img.height = 384;
-        img.src = "./?action=snapshot&n=" + (++imageNr);
+        img.src = "http://192.168.1.122:8080/?action=snapshot&n=" + (++imageNr);
         var webcam = document.getElementById("webcam");
 		window.info = document.getElementById('info').firstChild;
 		window.ravgFps = document.getElementById('ravgfps').firstChild;
