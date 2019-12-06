@@ -34,23 +34,147 @@ var socket = io();
 });
 
     }
+    document.onkeydown = function(e) {
+                switch (e.keyCode) {
+                    case 37:
+                    console.log("left!")
+                      document.getElementById("leftBtn").click();
+                      document.getElementById("leftBtn").style.color= "blue";
+                      document.getElementById("rightBtn").style.color= "white";
+                      document.getElementById("upBtn").style.color= "white";
+                      document.getElementById("downBtn").style.color= "white";
+
+                        break;
+                    case 38:
+                    console.log("up!")
+                      document.getElementById("upBtn").click();
+                      document.getElementById("leftBtn").style.color= "white";
+                      document.getElementById("rightBtn").style.color= "white";
+                      document.getElementById("upBtn").style.color= "blue";
+                      document.getElementById("downBtn").style.color= "white";
+                        break;
+                    case 39:
+                    console.log("right!")
+                    document.getElementById("rightBtn").click();
+                    document.getElementById("leftBtn").style.color= "white";
+                    document.getElementById("rightBtn").style.color= "blue";
+                    document.getElementById("upBtn").style.color= "white";
+                    document.getElementById("downBtn").style.color= "white";
+                        break;
+                    case 40:
+                    console.log("down!")
+                    document.getElementById("downBtn").click();
+                    document.getElementById("leftBtn").style.color= "white";
+                    document.getElementById("rightBtn").style.color= "white";
+                    document.getElementById("upBtn").style.color= "white";
+                    document.getElementById("downBtn").style.color= "blue ";
+                        break;
+                }
+            };
+            document.onkeyup = function(e) {
+                        switch (e.keyCode) {
+                            case 37:
+                            console.log("left!")
+                              document.getElementById("leftBtn").style.color= "white";
+                              document.getElementById("rightBtn").style.color= "white";
+                              document.getElementById("upBtn").style.color= "white";
+                              document.getElementById("downBtn").style.color= "white";
+
+                                break;
+                            case 38:
+                            console.log("up!")
+                              document.getElementById("leftBtn").style.color= "white";
+                              document.getElementById("rightBtn").style.color= "white";
+                              document.getElementById("upBtn").style.color= "white";
+                              document.getElementById("downBtn").style.color= "white";
+                                break;
+                            case 39:
+                            console.log("right!")
+                            document.getElementById("leftBtn").style.color= "white";
+                            document.getElementById("rightBtn").style.color= "white";
+                            document.getElementById("upBtn").style.color= "white";
+                            document.getElementById("downBtn").style.color= "white";
+                                break;
+                            case 40:
+                            console.log("down!")
+                            document.getElementById("leftBtn").style.color= "white";
+                            document.getElementById("rightBtn").style.color= "white";
+                            document.getElementById("upBtn").style.color= "white";
+                            document.getElementById("downBtn").style.color= "white ";
+                                break;
+                        }
+                    };
+
+function leftFN() {
+  console.log("here");
+}
 </script>
+<script>
+
+var imageNr = 0; // Serial number of current image
+var finished = new Array(); // References to img objects which have finished downloading
+var paused = false;
+
+function createImageLayer() {
+  var img = new Image();
+  img.style.position = "absolute";
+  img.style.zIndex = -1;
+  img.onload = imageOnload;
+  img.onclick = imageOnclick;
+  img.src = "./?action=snapshot&n=" + (++imageNr);
+  var webcam = document.getElementById("webcam");
+  webcam.insertBefore(img, webcam.firstChild);
+}
+
+// Two layers are always present (except at the very beginning), to avoid flicker
+function imageOnload() {
+  this.style.zIndex = imageNr; // Image finished, bring to front!
+  while (1 < finished.length) {
+    var del = finished.shift(); // Delete old image(s) from document
+    del.parentNode.removeChild(del);
+  }
+  finished.push(this);
+  if (!paused) createImageLayer();
+}
+
+function imageOnclick() { // Clicking on the image will pause the stream
+  paused = !paused;
+  if (!paused) createImageLayer();
+}
+
+
+
+
+</script>
+<style>
+.leftBtn:active, .active {
+  background-color:red;
+  color: white;
+          }
+</style>
 </head>
-<body>
-<div id="chartContainer" class="row justify-content-center align-items-center" style="height: 50vh; width: 100%;">
-    <div class="col">
-    </div>
-    <div class="col justify-content-center">
-           <div class="form-group">
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-    <label for="exampleFormControlTextarea1">Fob Unlock Logs</label>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;    <textarea class="form-control" id="exampleFormControlTextarea1" rows="3"></textarea>
-  </div>    
-        </div>
-    
+<body onload="createImageLayer();">
+  <div class="container" style="height:100vh; width:100vw" >
+  <div class ="row" style="height:60vh; width:100vw; background-color:green">
+    <button type="button" id="upBtn" class="btn btn-primary" style="margin-left:50%; margin-top:10%; width:200px; height: 100px; font-size: 30px;">
+   Forward!
+</button><br>
+<button type="button" id="leftBtn" onclick="leftFN()"class="btn btn-primary" style="margin-left:44%; margin-right:0%; width:200px; height: 100px; font-size: 30px;">
+Left!
+</button>
+<button type="button" id="rightBtn" class="btn btn-primary" style="width:200px; height: 100px; font-size: 30px;">
+Right!
+</button>
+
+<button type="button" id="downBtn" class="btn btn-primary" style="margin-left:49.75%;width:200px; height: 100px; font-size: 30px;">
+Backward!
+</button>
+  </div>
+  <div class = "row justify-content-md-center" id="webcam" style="height:40vh; width:100vw; background-color:blue;">
+    <noscript><img src="./?action=snapshot" /></noscript>
+  </div>
 </div>
-<br />
-<br />  
+
 <script>
 function find() {
 	console.log("Device Pinged!");

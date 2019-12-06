@@ -16,7 +16,7 @@ var header;
 
 // Port and IP of Host
 var PORT = 3333; // external is 3333
-var HOST = "192.168.1.122"; // Kyle's Laptop is .102, Pi is .122
+var HOST = "192.168.1.142"; // Kyle's Laptop is .102, Pi is .122
 const code = "smartkey";
 
 //Port and IP of Device
@@ -46,7 +46,7 @@ app.get('/logs', function(req, res){
 
 // Send sensor readings to frontend and write JSON to local file
 server.on('message', function (message, remote) {
-  // Parse message into JSON object 
+  // Parse message into JSON object
   var request = JSON.parse(message.toString());
   // Update device port and host
   devPORT = remote.port;
@@ -54,10 +54,10 @@ server.on('message', function (message, remote) {
   // Query the fobID in the user database
   users.findOne({"fobID": request["fob_id"]}, function(err, item) {
     // if fobID and code are valid
-    if (request["code"] == code && item != null) { 
+    if (request["code"] == code && item != null) {
       server.send("granted",devPORT,devHOST,function(error){});
       var d = new Date();
-      var info = {"name": item["name"], "fobID": request["fob_id"], "hubID": request["hub_id"], "timestamp": d.toLocaleString(), "access": "granted"}; 
+      var info = {"name": item["name"], "fobID": request["fob_id"], "hubID": request["hub_id"], "timestamp": d.toLocaleString(), "access": "granted"};
       // log new key access request
       logs.insert(info);
       console.log(info);
@@ -66,7 +66,7 @@ server.on('message', function (message, remote) {
     } else {
       server.send("denied",devPORT,devHOST,function(error){});
       var d = new Date();
-      if (item == null) { 
+      if (item == null) {
         var info = {"name": "unknown", "fobID": request["fob_id"], "hubID": request["hub_id"], "timestamp": d.toLocaleString(), "access": "denied"};
       } else {
         var info = {"name": item["name"], "fobID": request["fob_id"], "hubID": request["hub_id"], "timestamp": d.toLocaleString(), "access": "denied"};
