@@ -140,7 +140,8 @@ char split[100];
 #define HT16K33_CMD_BRIGHTNESS             0xE0 // Brightness cmd
 
 ////UART SETUP///////////////////////////////////////////////////////////////////
-static const int RX_BUF_SIZE = 10;
+static const int RX_BUF_SIZEir = 10;
+static const int RX_BUF_SIZEus = 120;
 
 #define TXD_PIN_FRONT (GPIO_NUM_17)
 #define RXD_PIN_FRONT (GPIO_NUM_16)
@@ -663,7 +664,7 @@ void alpha_write(double number) {
 
 void uart_init(void) {
     const uart_config_t uart_config = {
-        .baud_rate = 115200,
+        .baud_rate = 9600,
         .data_bits = UART_DATA_8_BITS,
         .parity = UART_PARITY_DISABLE,
         .stop_bits = UART_STOP_BITS_1,
@@ -683,9 +684,13 @@ void uart_init(void) {
     uart_param_config(UART_NUM_1, &uart_config);
     uart_set_pin(UART_NUM_0, TXD_PIN_FRONT, RXD_PIN_FRONT, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     uart_set_pin(UART_NUM_1, TXD_PIN_SIDE, RXD_PIN_SIDE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    uart_set_rts(UART_NUM_0, 1);
+    uart_set_line_inverse(UART_NUM_0, UART_INVERSE_RXD);
+    uart_set_rts(UART_NUM_1, 1);
+    uart_set_line_inverse(UART_NUM_1, UART_INVERSE_RXD);
     // We won't use a buffer for sending data.
-    uart_driver_install(UART_NUM_0, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
-    uart_driver_install(UART_NUM_1, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
+    uart_driver_install(UART_NUM_0, RX_BUF_SIZEus * 2, 0, 0, NULL, 0);
+    uart_driver_install(UART_NUM_1, RX_BUF_SIZEus * 2, 0, 0, NULL, 0);
 
     //IR UART
     uart_param_config(UART_NUM_2, &ir_config);
@@ -693,7 +698,7 @@ void uart_init(void) {
     uart_set_rts(UART_NUM_2, 1);
     uart_set_line_inverse(UART_NUM_2, UART_INVERSE_RXD);
     // We won't use a buffer for sending data.
-    uart_driver_install(UART_NUM_2, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
+    uart_driver_install(UART_NUM_2, RX_BUF_SIZEir * 2, 0, 0, NULL, 0);
 }
 
 //IR STUFF
@@ -715,9 +720,9 @@ bool checkCheckSum(uint8_t *p, int len) {
 // Receives task -- looks for Start byte then stores received values
 void ir_rx_task () {
   // Buffer for input data
-  uint8_t *data_in = (uint8_t *) malloc(RX_BUF_SIZE);
+  uint8_t *data_in = (uint8_t *) malloc(RX_BUF_SIZEir);
   while (1) {
-    int len_in = uart_read_bytes(UART_NUM_2, data_in, RX_BUF_SIZE, 20 / portTICK_RATE_MS);
+    int len_in = uart_read_bytes(UART_NUM_2, data_in, RX_BUF_SIZEir, 20 / portTICK_RATE_MS);
     if (len_in >0) {
         printf("%d\n", len_in);
       //if (data_in[0] == start) {
@@ -760,60 +765,53 @@ static void tx_task(void *arg)
     }
 }
 
-int rx_task_front()
+void rx_task_front()
 {
     static const char *RX_TASK_TAG = "RX_TASK";
     esp_log_level_set(RX_TASK_TAG, ESP_LOG_INFO);
-    uint8_t* data = (uint8_t*) malloc(RX_BUF_SIZE+1);
+    uint8_t* data = (uint8_t*) malloc(RX_BUF_SIZEus+1);
     int avgDist = 0;
     int distConcat = 0;
-
-    //read raw input
-    const int rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZE, 100 / portTICK_RATE_MS);
-
-    //if got data back
-    if (rxBytes > 0) {
-        data[rxBytes] = 0;
-
-        int i;
-        int distCounter = 0;
-
-        //scan for first instance of 2 0x59 bytes in a row (data header)
-        for (i = 0; i < rxBytes; i++) {
-            if (data[i] == 0x59 && data[i+1] == 0x59) {
-                break;
-            }
+    while(1) {
+        //read raw input
+        const int rxBytes = uart_read_bytes(UART_NUM_0, data, RX_BUF_SIZEus, 100 / portTICK_RATE_MS);
+        //if got data back
+        if (rxBytes > 0) {
+            data[rxBytes] = 0x00;
+            printf("%d\n", rxBytes);
+            ESP_LOG_BUFFER_HEXDUMP(TAG, data, rxBytes, ESP_LOG_INFO);
+            /*
+             int i = 0;
+             int sum = 0;
+             int count = 0;
+             char num[100];
+             
+             while (i < rxBytes) {
+             if (data[i] == 0x52) {
+             sprintf(num, "%c%c%c", (char)data[i+1], (char)data[i+2], (char)data[i+3]);
+             printf("%d\n", (int)num);
+             break;
+             //count = count + 1;
+             //i = i + 5;
+             }
+             }
+             // printf("%d\n", sum/count);
+             */
         }
-
-        //until the end of the data stream, read the 3rd and 4th byte in every 9 bytes (distance data)
-        for (i+=2; i < rxBytes; i+= 9) {
-
-            distConcat = (((uint16_t)data[i+1] << 8) | data[i]);
-            avgDist += distConcat;
-            distCounter++;
-
-        }
-
-        avgDist /= distCounter;
-
-        //ESP_LOGI(RX_TASK_TAG, "Distance: %d", avgDist);
-
     }
-
+    
     free(data);
-
-    return avgDist;
 }
 
 int rx_task_side()
 {
     static const char *RX_TASK_TAG = "RX_TASK";
     esp_log_level_set(RX_TASK_TAG, ESP_LOG_INFO);
-    uint8_t* data = (uint8_t*) malloc(RX_BUF_SIZE+1);
+    uint8_t* data = (uint8_t*) malloc(RX_BUF_SIZEus+1);
     int avgDist = 0;
     int distConcat = 0;
 
-    const int rxBytes = uart_read_bytes(UART_NUM_2, data, RX_BUF_SIZE, 100 / portTICK_RATE_MS);
+    const int rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZEus, 100 / portTICK_RATE_MS);
 
     if (rxBytes > 0) {
         data[rxBytes] = 0;
@@ -923,7 +921,7 @@ void control(void *arg)
     while (running) {
         
         int avgDistSide = rx_task_side();
-        int avgDistFront = rx_task_front();
+        int avgDistFront = 0;//rx_task_front();
         adjust(setpoint_st, avgDistFront, avgDistSide);
         angle = steering_per_degree_init(angle_duty);
         mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
@@ -1055,6 +1053,7 @@ static void example_tg0_timer_init(int timer_idx,
 
 void app_main(void)
 {
+    /*
     // networking startup routines
     wifi_init_sta();
     udp_init();
@@ -1068,7 +1067,7 @@ void app_main(void)
     // timer
     timer_queue = xQueueCreate(10, sizeof(timer_event_t));
     example_tg0_timer_init(TIMER_0, TEST_WITHOUT_RELOAD, TIMER_INTERVAL0_SEC);
-
+    */
     // Drive & steering startup routine
     pwm_init();
     uart_init();
@@ -1088,8 +1087,8 @@ void app_main(void)
     // start up driving tasks
     printf("Starting up!");
     //xTaskCreate(control, "control", 4096, NULL, 5, NULL);
-    xTaskCreate(ir_rx_task, "ir_rx_task", 4096, NULL, configMAX_PRIORITIES, NULL);
-
+    //xTaskCreate(ir_rx_task, "ir_rx_task", 4096, NULL, configMAX_PRIORITIES, NULL);
+    xTaskCreate(rx_task_front, "rx_task_front", 4096, NULL, configMAX_PRIORITIES, NULL);
     // xTaskCreate(drive_control, "drive_control", 4096, NULL, 4, NULL);
 }
 
