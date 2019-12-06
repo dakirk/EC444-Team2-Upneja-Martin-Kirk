@@ -88,8 +88,8 @@ io.on('connection', function(socket){
 });
 
 // Listening on port 3000
-http.listen(3000, function() {
-  console.log('listening on *:3000');
+http.listen(8080, function() {
+  console.log('listening on *:8080');
 });
 
 // Create server
