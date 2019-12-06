@@ -16,7 +16,7 @@ var header;
 
 // Port and IP of Host
 var PORT = 3333; // external is 3333
-var HOST = "192.168.1.142"; // Kyle's Laptop is .102, Pi is .122
+var HOST = "192.168.1.122"; // Kyle's Laptop is .102, Pi is .122, Ayush's Laptop is .142
 const code = "smartkey";
 
 //Port and IP of Device
