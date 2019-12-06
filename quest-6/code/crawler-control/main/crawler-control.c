@@ -50,25 +50,8 @@
 #include "./ADXL343.h"
 #include "displaychars.h"
 
-// PID Init ////////////////////////////////////////////////////////////////////////
-
-// steering
-double setpoint_st = 90; // cm from side wall
-double previous_error_st = 0.0;
-double integral_st = 0.0;
-double derivative_st = 0.0;
-
-int side_dist = 0; // input
-uint32_t angle_duty = 90; // actuation
-
-// speed
-double setpoint_sp = 0.3;
-double previous_error_sp = 0.0;
-double integral_sp = 0.0;
-double derivative_sp = 0.0;
-
-double speed = 0.0; // input
-uint32_t drive_duty = 1200; // actuation
+//ir comm
+#include "driver/rmt.h"
 
 // Timer Init //////////////////////////////////////////////////////////////////////
 double dt = 1;
@@ -124,6 +107,10 @@ typedef struct {
 #define STEERING_MIN_PULSEWIDTH 700 //Minimum pulse width in microsecond
 #define STEERING_MAX_PULSEWIDTH 2100 //Maximum pulse width in microsecond
 #define STEERING_MAX_DEGREE 180 //Maximum angle in degree upto which servo can rotate
+
+uint32_t angle_duty = 90; // actuation
+uint32_t drive_duty = 1200; // actuation
+char split[100];
 
 ////I2C SETUP///////////////////////////////////////////////////////////////////
 
@@ -183,7 +170,8 @@ const int WIFI_CONNECTED_BIT = BIT0;                    //The event group allows
 static const char *TAG = "wifi station";
 static int s_retry_num = 0;
 
-bool running = true;//false;
+bool running = true;
+bool mode = 0; // automatic = 0, manual = 1
 
 //function headers
 void pid_speed();
@@ -312,6 +300,30 @@ static void udp_client_receive() {
                     running = true;
                 } else if (strstr(rx_buffer, "stop") != NULL) {
                     running = false;
+                } else if (strstr(rx_buffer, "automatic") != NULL) {
+                    mode = 0;
+                } else if (strstr(rx_buffer, "manual") != NULL) {
+                    mode = 1;
+                } else if (strstr(rx_buffer, "speedup") != NULL) {
+                    if (mode) {
+                        // increase speed = 1
+                        manual_speed_adj(1);
+                    }
+                } else if (strstr(rx_buffer, "slowdown") != NULL) {
+                    if (mode) {
+                        // decrease speed = 0
+                        manual_speed_adj(0);
+                    }
+                } else if (strstr(rx_buffer, "left") != NULL) {
+                    if (mode) {
+                        // right = 1
+                        manual_steer_adj(1);
+                    }
+                } else if (strstr(rx_buffer, "left") != NULL) {
+                    if (mode) {
+                        // left = 0
+                        manual_steer_adj(0);
+                    }
                 }
 
             }
@@ -644,11 +656,14 @@ void uart_init(void) {
     };
     uart_param_config(UART_NUM_1, &uart_config);
     uart_param_config(UART_NUM_2, &uart_config);
+    uart_param_config(UART_NUM_3, &uart_config);
     uart_set_pin(UART_NUM_1, TXD_PIN_FRONT, RXD_PIN_FRONT, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     uart_set_pin(UART_NUM_2, TXD_PIN_SIDE, RXD_PIN_SIDE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    uart_set_pin(UART_NUM_3, TXD_PIN_SIDE, RXD_PIN_SIDE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     // We won't use a buffer for sending data.
     uart_driver_install(UART_NUM_1, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
     uart_driver_install(UART_NUM_2, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
+    uart_driver_install(UART_NUM_3, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
 }
 
 int uart_sendData_front(const char* logName, const char* data)
@@ -830,100 +845,128 @@ void calibrateESC() {
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 }
 
-/**
- * @brief Configure MCPWM module
- */
-void drive_control(void *arg)
+// Automatic Control ///////////////////////////////////////////////////////
+
+void control(void *arg)
 {
-
-    while (running) {
-
-        mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, drive_duty);
-
-        //vTaskDelay(100/portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
-
-        int avgDistFront = rx_task_front();
-
-        blackStripeCount = pcnt_read(1000); //.5s delay to read
-        speed = (((double)blackStripeCount / 6.0) * 0.598) / 1; //convert to m/s
-        alpha_write(speed);
-
-
-        pid_speed();
-        //printf("%d\n", drive_duty);
-        
-
-        //printf("Front dist: %d; Side dist: %d\n", avgDistFront, side_dist);
-
-        //UNCOMMENT THIS TO MAKE THE CRAWLER STOP BEFORE THE WALL
-        /*
-        if (avgDistFront < 90) {
-            break;
-        }
-        */
-    }
-
-    mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 1400);
-
-    vTaskDelete(NULL);
-}
-
-/**
- * @brief Configure MCPWM module
- */
-/*
-void steering_control(void *arg)
-{
+    timer_start(TIMER_GROUP_0, timer_idx);
+    double setpoint_st = 90; // cm from side wall
     uint32_t angle;
-    //uint32_t count = 90;
-
+    mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, drive_duty);
     while (running) {
-
-        angle = steering_per_degree_init(angle_duty);
-
+        
         int avgDistSide = rx_task_side();
-        side_dist = avgDistSide;
-        pid_steering();
-
+        int avgDistFront = rx_task_front();
+        adjust(setpoint_st, avgDistFront, avgDistSide);
+        angle = steering_per_degree_init(angle_duty);
         mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
-
+        
         vTaskDelay(100/portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
-
+        
     }
-
+    
     vTaskDelete(NULL);
 }
-*/
-// PID Functions ///////////////////////////////////////////////////////
-void pid_speed() {
-    double error = 0.0;
-    double e = 0.0;
-    double kp = 2.0;
-    double ki = 1.0;
-    double kd = 1.0;
-    double output;
 
-    e = setpoint_sp - speed;
-    error = fabs(setpoint_sp - speed);
-    //integral_sp = integral_sp + error * dt;
-    derivative_sp = fabs(error - previous_error_sp) / dt;
-    previous_error_sp = error;
-    output = kp * error + kd * derivative_sp; //+ ki * integral_sp
-
-    printf("%.1f\n", e);
-    
-    // convert output to duty (output will be in the form of distance from wall)
-    
-    if (e > 0) {
-      drive_duty = drive_duty + output;
-    } else if (e < 0) {
-      drive_duty = drive_duty - output;
+void adjust(int setpoint, int front, int side) {
+    // in all cases, adjust angle duty
+    if (front < 30) {
+        // execute right turn
+    } else if (side < (setpoint - 10)) {
+        // execute right tilt
+    } else if (side > (setpoint + 10)) {
+        // execute left tilt
     } else {
-      drive_duty = drive_duty;
+        // maintain orientation
     }
-    
 }
 
+// Manual Control //////////////////////////////////////////////////////
+
+void manual_speed_adj(int mode) {
+    if (mode == 1) {
+        mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, drive_duty-10);
+    } else {
+        mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, drive_duty+10);
+    }
+}
+
+void manual_steer_adj(int mode) {
+    if (mode == 1) {
+        angle = steering_per_degree_init(angle_duty + 1);
+        mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
+    } else {
+        angle = steering_per_degree_init(angle_duty - 1);
+        mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
+    }
+}
+
+// IR Comm //////////////////////////////////////////////////////////////
+
+//Sets up the 38kHz signal for IR transmission
+static void nec_tx_init(void)
+{
+    rmt_config_t rmt_tx;
+    rmt_tx.channel = RMT_TX_CHANNEL;
+    rmt_tx.gpio_num = RMT_PIN;
+    rmt_tx.mem_block_num = 1;
+    rmt_tx.clk_div = RMT_CLK_DIV;
+    rmt_tx.tx_config.loop_en = false;
+    rmt_tx.tx_config.carrier_duty_percent = 50;
+    rmt_tx.tx_config.carrier_freq_hz = 38000; //IMPORTANT PART?
+    rmt_tx.tx_config.carrier_level = 1;
+    rmt_tx.tx_config.carrier_en = 1;
+    rmt_tx.tx_config.idle_level = 1;
+    rmt_tx.tx_config.idle_output_en = true;
+    rmt_tx.rmt_mode = 0;
+    rmt_config(&rmt_tx);
+    rmt_driver_install(rmt_tx.channel, 0, 0);
+}
+
+static void rx_task_ir(void *arg)
+{
+    static const char *RX_TASK_TAG = "RX_TASK";
+    esp_log_level_set(RX_TASK_TAG, ESP_LOG_INFO);
+    uint8_t* data = (uint8_t*) malloc(RX_BUF_SIZE+1);
+    while (1) {
+        const int rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZE, 100 / portTICK_RATE_MS);
+        if (rxBytes > 0) {
+            data[rxBytes] = 0;
+            ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
+            ESP_LOG_BUFFER_HEXDUMP(RX_TASK_TAG, data, rxBytes, ESP_LOG_INFO);
+            
+            //printf("%s\n", data);
+            
+            if (strstr((char*)data, "hub: ") != NULL) {
+                printf("received data!");
+                
+                char udpBuf[100];
+                
+                //from here: https://stackoverflow.com/questions/15472299/split-string-into-tokens-and-save-them-in-an-array
+                char* split[4];
+                int i = 0;
+                
+                split[i] = strtok((char*)data, " ");
+                
+                while(split[i] != NULL) {
+                    split[++i] = strtok(NULL, " ");
+                }
+                
+                if (i >= 2) {
+                    sprintf(udpBuf, "{\"fob_id\": \"%s\", \"hub_id\": \"%s\", \"code\": \"%s\"}", split[1], HUB_ID, split[2]);
+                    udp_client_send(udpBuf);
+                    gpio_set_level(BLU_LED, 1);
+                }
+                
+            }
+            int time;
+            timer_get_counter_time_sec(TIMER_GROUP_0, timer_idx, &time);
+            alpha_write(time);
+        }
+        
+    }
+    free(data);
+}
 
 // Timer ///////////////////////////////////////////////////////////////
 /*
@@ -1006,30 +1049,12 @@ static void example_tg0_timer_init(int timer_idx,
     /* Configure the alarm value and the interrupt on alarm. */
     timer_set_alarm_value(TIMER_GROUP_0, timer_idx, timer_interval_sec * TIMER_SCALE);
     timer_enable_intr(TIMER_GROUP_0, timer_idx);
-    timer_isr_register(TIMER_GROUP_0, timer_idx, timer_group0_isr,
-                       (void *) timer_idx, ESP_INTR_FLAG_IRAM, NULL);
-    
-    timer_start(TIMER_GROUP_0, timer_idx);
-}
-
-/*
- * The main task of this example program
- */
-static void timer_example_evt_task(void *arg)
-{
-    while (1) {
-
-        timer_event_t evt;
-        xQueueReceive(timer_queue, &evt, portMAX_DELAY);
-
-
-    }
+    timer_isr_register(TIMER_GROUP_0, timer_idx, timer_group0_isr, (void *) timer_idx, ESP_INTR_FLAG_IRAM, NULL);
 }
 
 void app_main(void)
 {
-
-    networking startup routines
+    // networking startup routines
     wifi_init_sta();
     udp_init();
 
@@ -1039,28 +1064,110 @@ void app_main(void)
     alpha_init();
     alpha_write(0.0); //set default speed reading to 0
 
+    // timer
     timer_queue = xQueueCreate(10, sizeof(timer_event_t));
     example_tg0_timer_init(TIMER_0, TEST_WITHOUT_RELOAD, TIMER_INTERVAL0_SEC);
 
     // Drive & steering startup routine
     pwm_init();
     uart_init();
-
     printf("Calibrating motors...");
     calibrateESC();
 
-    wait for "start" signal from Node.js UDP server
+    // wait for "start" signal from Node.js UDP server
     printf("Waiting for start signal...\n");
     udp_client_send("Test message");
     xTaskCreate(udp_client_receive, "udp_client_receive", 4096, NULL, 6, NULL); //also used later for getting stop signal
     while (!running) {
         vTaskDelay(100/portTICK_RATE_MS);
     }
-
+    
+    // start up driving tasks
     printf("Starting up!");
-
-    //start up driving tasks
-    //xTaskCreate(steering_control, "steering_control", 4096, NULL, 5, NULL);
-    xTaskCreate(drive_control, "drive_control", 4096, NULL, 4, NULL);
-    //xTaskCreate(timer_example_evt_task, "timer_evt_task", 2048, NULL, 3, NULL);
+    xTaskCreate(control, "control", 4096, NULL, 5, NULL);
+    // xTaskCreate(drive_control, "drive_control", 4096, NULL, 4, NULL);
 }
+
+
+
+
+// NOT BEING USED CURRENTLY //////////////////////////////////////////////////////////
+
+/*
+ void drive_control(void *arg)
+ {
+ 
+ while (running) {
+ 
+ mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, drive_duty);
+ 
+ //vTaskDelay(100/portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
+ 
+ int avgDistFront = rx_task_front();
+ 
+ blackStripeCount = pcnt_read(1000); //.5s delay to read
+ speed = (((double)blackStripeCount / 6.0) * 0.598) / 1; //convert to m/s
+ alpha_write(speed);
+ 
+ 
+ pid_speed();
+ //printf("%d\n", drive_duty);
+ 
+ 
+ //printf("Front dist: %d; Side dist: %d\n", avgDistFront, side_dist);
+ 
+ //UNCOMMENT THIS TO MAKE THE CRAWLER STOP BEFORE THE WALL
+ /*
+ if (avgDistFront < 90) {
+ break;
+ }
+ */
+/*
+ }
+ 
+ mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 1400);
+ 
+ vTaskDelete(NULL);
+ }
+ */
+
+/*
+ void pid_speed() {
+ double error = 0.0;
+ double e = 0.0;
+ double kp = 2.0;
+ double ki = 1.0;
+ double kd = 1.0;
+ double output;
+ 
+ e = setpoint_sp - speed;
+ error = fabs(setpoint_sp - speed);
+ //integral_sp = integral_sp + error * dt;
+ derivative_sp = fabs(error - previous_error_sp) / dt;
+ previous_error_sp = error;
+ output = kp * error + kd * derivative_sp; //+ ki * integral_sp
+ 
+ printf("%.1f\n", e);
+ 
+ // convert output to duty (output will be in the form of distance from wall)
+ 
+ if (e > 0) {
+ drive_duty = drive_duty + output;
+ } else if (e < 0) {
+ drive_duty = drive_duty - output;
+ } else {
+ drive_duty = drive_duty;
+ }
+ }
+ */
+
+/*
+ // speed
+ double setpoint_sp = 0.3;
+ double previous_error_sp = 0.0;
+ double integral_sp = 0.0;
+ double derivative_sp = 0.0;
+ 
+ double speed = 0.0; // input
+ uint32_t drive_duty = 1200; // actuation
+ */
