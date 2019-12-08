@@ -727,6 +727,24 @@ void ir_rx_task () {
         printf("%d\n", len_in);
       //if (data_in[0] == start) {
         //if (checkCheckSum(data_in,len_out)) {
+
+        int i;
+
+        //find first "start" byte
+        for (i = 0; i < len_in; i++) {
+            if (data_in[i] == 0x1b) {
+                break;
+            }
+        }
+
+        char lightColor = data_in[i+1];
+        uint8_t id = data_in[i+2];
+
+        if (checkCheckSum(data_in, 4)) {
+            printf("Checksum checks out! Light is: %c\n", lightColor);
+        }
+
+
         ESP_LOG_BUFFER_HEXDUMP(TAG, data_in, len_out, ESP_LOG_INFO);
         //}
      //}
@@ -1060,82 +1078,6 @@ void app_main(void)
     // start up driving tasks
     printf("Starting up!");
     xTaskCreate(control, "control", 4096, NULL, 5, NULL);
-    //xTaskCreate(ir_rx_task, "ir_rx_task", 4096, NULL, configMAX_PRIORITIES, NULL);
+    xTaskCreate(ir_rx_task, "ir_rx_task", 4096, NULL, configMAX_PRIORITIES, NULL);
 }
 
-
-
-
-// NOT BEING USED CURRENTLY //////////////////////////////////////////////////////////
-
-/*
- void drive_control(void *arg)
- {
- 
- while (running) {
- 
- mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, drive_duty);
- 
- //vTaskDelay(100/portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
- 
- int avgDistFront = rx_task_front();
- 
- blackStripeCount = pcnt_read(1000); //.5s delay to read
- speed = (((double)blackStripeCount / 6.0) * 0.598) / 1; //convert to m/s
- alpha_write(speed);
- 
- 
- pid_speed();
- //printf("%d\n", drive_duty);
- 
- 
- //printf("Front dist: %d; Side dist: %d\n", avgDistFront, side_dist);
- 
- //UNCOMMENT THIS TO MAKE THE CRAWLER STOP BEFORE THE WALL
- if (avgDistFront < 90) {
- break;
- }
- }
- 
- mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 1400);
- 
- vTaskDelete(NULL);
- }
-
- void pid_speed() {
- double error = 0.0;
- double e = 0.0;
- double kp = 2.0;
- double ki = 1.0;
- double kd = 1.0;
- double output;
- 
- e = setpoint_sp - speed;
- error = fabs(setpoint_sp - speed);
- //integral_sp = integral_sp + error * dt;
- derivative_sp = fabs(error - previous_error_sp) / dt;
- previous_error_sp = error;
- output = kp * error + kd * derivative_sp; //+ ki * integral_sp
- 
- printf("%.1f\n", e);
- 
- // convert output to duty (output will be in the form of distance from wall)
- 
- if (e > 0) {
- drive_duty = drive_duty + output;
- } else if (e < 0) {
- drive_duty = drive_duty - output;
- } else {
- drive_duty = drive_duty;
- }
- }
-
- // speed
- double setpoint_sp = 0.3;
- double previous_error_sp = 0.0;
- double integral_sp = 0.0;
- double derivative_sp = 0.0;
- 
- double speed = 0.0; // input
- uint32_t drive_duty = 1200; // actuation
- */
