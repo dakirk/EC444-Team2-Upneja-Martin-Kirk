@@ -140,7 +140,7 @@ char split[100];
 #define HT16K33_CMD_BRIGHTNESS             0xE0 // Brightness cmd
 
 ////UART SETUP///////////////////////////////////////////////////////////////////
-static const int RX_BUF_SIZEir = 10;
+static const int RX_BUF_SIZEir = 120;
 static const int RX_BUF_SIZEus = 120;
 
 #define TXD_PIN_FRONT (GPIO_NUM_17)
@@ -727,7 +727,7 @@ void ir_rx_task () {
         printf("%d\n", len_in);
       //if (data_in[0] == start) {
         //if (checkCheckSum(data_in,len_out)) {
-          ESP_LOG_BUFFER_HEXDUMP(TAG, data_in, len_out, ESP_LOG_INFO);
+        ESP_LOG_BUFFER_HEXDUMP(TAG, data_in, len_out, ESP_LOG_INFO);
         //}
      //}
     }
@@ -765,42 +765,30 @@ static void tx_task(void *arg)
     }
 }
 
-void rx_task_front()
+int rx_task_front()
 {
     static const char *RX_TASK_TAG = "RX_TASK";
     esp_log_level_set(RX_TASK_TAG, ESP_LOG_INFO);
     uint8_t* data = (uint8_t*) malloc(RX_BUF_SIZEus+1);
-    int avgDist = 0;
-    int distConcat = 0;
-    while(1) {
-        //read raw input
-        const int rxBytes = uart_read_bytes(UART_NUM_0, data, RX_BUF_SIZEus, 100 / portTICK_RATE_MS);
-        //if got data back
-        if (rxBytes > 0) {
-            data[rxBytes] = 0x00;
-            printf("%d\n", rxBytes);
-            ESP_LOG_BUFFER_HEXDUMP(TAG, data, rxBytes, ESP_LOG_INFO);
-            /*
-             int i = 0;
-             int sum = 0;
-             int count = 0;
-             char num[100];
-             
-             while (i < rxBytes) {
-             if (data[i] == 0x52) {
-             sprintf(num, "%c%c%c", (char)data[i+1], (char)data[i+2], (char)data[i+3]);
-             printf("%d\n", (int)num);
-             break;
-             //count = count + 1;
-             //i = i + 5;
-             }
-             }
-             // printf("%d\n", sum/count);
-             */
+    char num[100];
+    int i = 0;
+    int sum = 0;
+    int count = 0;
+    //read raw input
+    const int rxBytes = uart_read_bytes(UART_NUM_0, data, RX_BUF_SIZEus, 100 / portTICK_RATE_MS);
+    //if got data back
+    if (rxBytes > 0) {
+        while(data[i] != 0x52) {
+            i = i + 1;
+        }
+        for (int j = i; j < rxBytes; j = j + 5) {
+            sprintf(num, "%c%c%c", (char)data[j+1], (char)data[j+2], (char)data[j+3]);
+            sum = sum + atoi(num);
+            count = count + 1;
         }
     }
-    
     free(data);
+    return (sum - atoi(num))/(count - 1);
 }
 
 int rx_task_side()
@@ -808,43 +796,25 @@ int rx_task_side()
     static const char *RX_TASK_TAG = "RX_TASK";
     esp_log_level_set(RX_TASK_TAG, ESP_LOG_INFO);
     uint8_t* data = (uint8_t*) malloc(RX_BUF_SIZEus+1);
-    int avgDist = 0;
-    int distConcat = 0;
-
+    char num[100];
+    int i = 0;
+    int sum = 0;
+    int count = 0;
+    //read raw input
     const int rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZEus, 100 / portTICK_RATE_MS);
-
+    //if got data back
     if (rxBytes > 0) {
-        data[rxBytes] = 0;
-
-        int i;
-        int distCounter = 0;
-
-        //scan for first instance of 2 0x59 bytes in a row (data header)
-        for (i = 0; i < rxBytes; i++) {
-            if (data[i] == 0x59 && data[i+1] == 0x59) {
-                break;
-            }
+        while(data[i] != 0x52) {
+            i = i + 1;
         }
-
-        //until the end of the data stream, read the 3rd and 4th byte in every 9 bytes (distance data)
-        for (i+=2; i < rxBytes; i+= 9) {
-
-            //concatenate 3rd and 4th bytes into a distance value (cm)
-            distConcat = (((uint16_t)data[i+1] << 8) | data[i]);
-            avgDist += distConcat;
-            distCounter++;
-
+        for (int j = i; j < rxBytes; j = j + 5) {
+            sprintf(num, "%c%c%c", (char)data[j+1], (char)data[j+2], (char)data[j+3]);
+            sum = sum + atoi(num);
+            count = count + 1;
         }
-
-        avgDist /= distCounter;
-
-        //ESP_LOGI(RX_TASK_TAG, "Distance: %d", avgDist);
-
     }
-
     free(data);
-
-    return avgDist;
+    return (sum - atoi(num))/(count - 1);
 }
 
 static void mcpwm_example_gpio_initialize(void)
@@ -917,17 +887,20 @@ void control(void *arg)
 {
     double setpoint_st = 90; // cm from side wall
     uint32_t angle;
-    mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, drive_duty);
+    //mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, drive_duty);
     while (running) {
         
-        int avgDistSide = rx_task_side();
+        int side = rx_task_side();
+        int front = rx_task_front();
+        printf("side: %d\n", side);
+        printf("front: %d\n", front);
+        /*
         int avgDistFront = 0;//rx_task_front();
         adjust(setpoint_st, avgDistFront, avgDistSide);
         angle = steering_per_degree_init(angle_duty);
         mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
-        
         vTaskDelay(100/portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
-        
+        */
     }
     
     vTaskDelete(NULL);
@@ -1086,10 +1059,8 @@ void app_main(void)
     
     // start up driving tasks
     printf("Starting up!");
-    //xTaskCreate(control, "control", 4096, NULL, 5, NULL);
+    xTaskCreate(control, "control", 4096, NULL, 5, NULL);
     //xTaskCreate(ir_rx_task, "ir_rx_task", 4096, NULL, configMAX_PRIORITIES, NULL);
-    xTaskCreate(rx_task_front, "rx_task_front", 4096, NULL, configMAX_PRIORITIES, NULL);
-    // xTaskCreate(drive_control, "drive_control", 4096, NULL, 4, NULL);
 }
 
 
