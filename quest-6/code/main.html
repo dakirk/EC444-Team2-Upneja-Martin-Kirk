@@ -158,22 +158,34 @@ function imageOnclick() { // Clicking on the image will pause the stream
 <body onload="createImageLayer();">
   <div class="container" style="height:100vh; width:100vw" >
   <div class ="row" style="height:60vh; width:100vw; background-color:green">
-    <button type="button" id="upBtn" class="btn btn-primary" style="margin-left:50%; margin-top:10%; width:200px; height: 100px; font-size: 30px;">
+    <div class="row" style="height:50vh; width:50vw; text-align: center; display: inline-block; margin-top: 10%; margin-left: 17%"
+    <div id="webcam"><noscript><img src="http://192.168.1.122:8080/?action=snapshot" style="width: 500px; height: 600px;"/></noscript></div>
+
+
+  </div>
+  <div class = "row justify-content-md-center" style="height:40vh; width:100vw; background-color:blue;">
+    <button type="button" id="upBtn" class="btn btn-primary" style="margin-left:24.75%; margin-top:1%; width:200px; height: 100px; font-size: 30px;">
    Forward!
-</button><br>
-<button type="button" id="leftBtn" onclick="leftFN()"class="btn btn-primary" style="margin-left:44%; margin-right:0%; width:200px; height: 100px; font-size: 30px;">
+</button>
+<button type="button" class="btn btn-primary" style="margin-left: 45%; width: 150px; height: 50px; font-size: 20px;">Split 1 <span class="badge">1:05</span></button>
+
+<br>
+<button type="button" id="leftBtn" onclick="leftFN()"class="btn btn-primary" style="margin-left:19%; margin-right:0%; width:200px; height: 100px; font-size: 30px;">
 Left!
 </button>
 <button type="button" id="rightBtn" class="btn btn-primary" style="width:200px; height: 100px; font-size: 30px;">
 Right!
 </button>
+<button type="button" class="btn btn-primary" style="margin-left: 38.5%; width: 150px; height: 50px; font-size: 20px;">Split 2 <span class="badge">1:05</span></button>
 
-<button type="button" id="downBtn" class="btn btn-primary" style="margin-left:49.75%;width:200px; height: 100px; font-size: 30px;">
+
+<br />
+
+<button type="button" id="downBtn" class="btn btn-primary" style="margin-left:24.75%;width:200px; height: 100px; font-size: 30px;">
 Backward!
 </button>
-  </div>
-  <div class = "row justify-content-md-center" style="height:40vh; width:100vw; background-color:blue;">
-    <div id="webcam"><noscript><img src="http://192.168.1.122:8080/?action=snapshot" /></noscript></div>
+<button type="button" class="btn btn-primary" style="margin-left: 45%; width: 150px; height: 50px; font-size: 20px;">Split 3 <span class="badge">1:05</span></button>
+
     </div>
   </div>
 
