@@ -6,6 +6,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.6/js/bootstrap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-table/1.10.1/bootstrap-table.min.js"></script>
+<script src="bower_components/qcode-decoder/build/qcode-decoder.min.js"></script>
 <script>
 window.onload = function () {
 	//get request xhr variable
@@ -129,6 +130,12 @@ function createImageLayer() {
   img.src = "http://192.168.1.122:8080/?action=snapshot&n=" + (++imageNr);
   var webcam = document.getElementById("webcam");
   webcam.insertBefore(img, webcam.firstChild);
+  var qr = new QCodeDecoder();
+  console.log("testing1");
+  qr.decodeFromImage(https://cirocosta.github.io/qcode-decoder/dist/assets/qrcode.png,function(er,res){
+    console.log(res);
+    console.log("here");
+  });
 }
 
 // Two layers are always present (except at the very beginning), to avoid flicker
