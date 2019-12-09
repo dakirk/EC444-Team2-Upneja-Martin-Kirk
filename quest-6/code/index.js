@@ -16,7 +16,7 @@ var header;
 
 // Port and IP of Host
 var PORT = 3333; // external is 3333
-var HOST = "192.168.1.122"; // Kyle's Laptop is .102, Pi is .122, Ayush's Laptop is .142
+var HOST = "192.168.1.101"; // David's laptop is .101, Kyle's Laptop is .102, Pi is .122, Ayush's Laptop is .142
 const code = "smartkey";
 
 //Port and IP of Device
@@ -32,6 +32,8 @@ var db = new Engine.Db('.', {});
 var users = db.collection("users_v4");
 var logs = db.collection("logs");
 
+var dirs = [0, 0, 1];
+
 // Publish HTML file
 app.get('/', function(req, res){
   res.sendFile(__dirname + '/main.html');
@@ -44,8 +46,39 @@ app.get('/logs', function(req, res){
    });
 });
 
+app.post('/speed', function(req, res) {
+  var speed = req.body.speed;
+  dirs[0] += speed;
+
+
+  console.log("speed: " + speed);
+  server.send(dirs, devPORT, devHOST, function(error){});
+});
+
+app.post('/steer', function(req, res) {
+  var steer = req.body.steer;
+  dirs[1] += steer;
+
+  console.log("steer: " + steer);
+  server.send(dirs, devPORT, devHOST, function(error){});
+});
+
+app.post('/status', function(req, res) {
+  var status = req.body.status;
+  dirs[2] = status;
+
+  console.log("status: " + status);
+  server.send(dirs, devPORT, devHOST, function(error){});
+});
+
 // Send sensor readings to frontend and write JSON to local file
 server.on('message', function (message, remote) {
+
+  var splitTime = parseFloat(message);
+
+  console.log(devHOST + ":" + devPORT + " time: " + splitTime);
+
+  /*
   // Parse message into JSON object
   var request = JSON.parse(message.toString());
   // Update device port and host
@@ -77,6 +110,7 @@ server.on('message', function (message, remote) {
       io.emit("message", info);
     }
   })
+  */
 });
 
 // User socket connection

@@ -33,6 +33,16 @@ static const int RX_BUF_SIZE = 1024;
 #define BLU_LED (GPIO_NUM_32) //A7
 #define RED_LED (GPIO_NUM_15) //A8
 
+// Default ID/color
+#define ID 3
+#define COLOR 'R'
+
+// Variables for my ID, minVal and status plus string fragments
+char start = 0x1B;
+char myID = (char) ID;
+char myColor = (char) COLOR;
+int len_out = 10;
+
 #define RMT_TX_CHANNEL    1     /*!< RMT channel for transmitter */
 //#define RMT_TX_GPIO_NUM  18     /*!< GPIO number for transmitter signal */
 #define RMT_RX_CHANNEL    0     /*!< RMT channel for receiver */
@@ -270,7 +280,7 @@ void led_init(void) {
 
 void uart_init(void) {
     const uart_config_t uart_config = {
-        .baud_rate = 2400,
+        .baud_rate = 1200,
         .data_bits = UART_DATA_8_BITS,
         .parity = UART_PARITY_DISABLE,
         .stop_bits = UART_STOP_BITS_1,
@@ -295,11 +305,30 @@ int sendData(const char* logName, const char* data)
 
 static void rx_task(void *arg)
 {
+
+    // Buffer for input data
+    uint8_t *data_in = (uint8_t *) malloc(RX_BUF_SIZE);
+    while (1) {
+    int len_in = uart_read_bytes(UART_NUM_1, data_in, RX_BUF_SIZE, 20 / portTICK_RATE_MS);
+    if (len_in >0) {
+      //if (data_in[0] == start) {
+        //if (checkCheckSum(data_in,len_out)) {
+          ESP_LOG_BUFFER_HEXDUMP(TAG, data_in, len_out, ESP_LOG_INFO);
+        //}
+      //}
+    }
+    else{
+      // printf("Nothing received.\n");
+    }
+    vTaskDelay(5 / portTICK_PERIOD_MS);
+    }
+    free(data_in);
+    /*
     static const char *RX_TASK_TAG = "RX_TASK";
     esp_log_level_set(RX_TASK_TAG, ESP_LOG_INFO);
     uint8_t* data = (uint8_t*) malloc(RX_BUF_SIZE+1);
     while (1) {
-        const int rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZE, 100 / portTICK_RATE_MS);
+        const int rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZE, 10 / portTICK_RATE_MS);
         if (rxBytes > 0) {
             data[rxBytes] = 0;
             ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
@@ -334,6 +363,7 @@ static void rx_task(void *arg)
 
     }
     free(data);
+    */
 }
 
 void app_main(void)

@@ -1029,7 +1029,7 @@ static void timer_example_evt_task(void *arg)
 void app_main(void)
 {
 
-    networking startup routines
+    //networking startup routines
     wifi_init_sta();
     udp_init();
 
@@ -1049,7 +1049,7 @@ void app_main(void)
     printf("Calibrating motors...");
     calibrateESC();
 
-    wait for "start" signal from Node.js UDP server
+    //wait for "start" signal from Node.js UDP server
     printf("Waiting for start signal...\n");
     udp_client_send("Test message");
     xTaskCreate(udp_client_receive, "udp_client_receive", 4096, NULL, 6, NULL); //also used later for getting stop signal

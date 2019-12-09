@@ -185,7 +185,7 @@ struct sockaddr_in dest_addr;                           //socket destination inf
 #define EXAMPLE_ESP_MAXIMUM_RETRY 10                    //CONFIG_ESP_MAXIMUM_RETRY
 static EventGroupHandle_t s_wifi_event_group;           //FreeRTOS event group to signal when we are connected
 const int WIFI_CONNECTED_BIT = BIT0;                    //The event group allows multiple bits for each event, but we only care about one event - are we connected to the AP with an IP?
-static const char *TAG = "wifi station";
+static const char *TAG = "meep";
 static int s_retry_num = 0;
 
 bool running = true;
@@ -762,18 +762,26 @@ char ir_rx_task() {
 
         if (lightColor == 'G' || lightColor == 'Y' || lightColor == 'R') {
 
+            //udp_client_send("received message!");
+
             if (checkCheckSum(data_in, 4)) {
                 printf("Checksum checks out! Light is '%c', ID is %d\n", lightColor, id);
+                printf("Speed: %d\tSteer: %d\n", inputArr[0], inputArr[1]);
 
                 if (id != prevId) {
 
                     char timeBuf[10];
 
-                    /*
-                    itoa(getSplit(), timeBuf);
-                    udp_client_send(getTime);
-                    resetSplit();
-                    */
+                    
+                    double splitTime;
+                    timer_get_counter_time_sec(TIMER_GROUP_0, TIMER_0, &splitTime);
+
+                    sprintf(timeBuf, "%f", splitTime);
+                    printf("TIME: %s\n", timeBuf);
+                    udp_client_send(timeBuf);
+
+                    timer_set_counter_value(TIMER_GROUP_0, TIMER_0, 0);
+                    timer_start(TIMER_GROUP_0, TIMER_0);
                     prevId = id;
                 }
 
@@ -964,10 +972,12 @@ void control(void *arg)
         
         if (running) {
 
+            char color = ir_rx_task(); //also handles split time
+
+
             if (isAutonomous) {
                 int side = rx_task_side();
                 int front = rx_task_front();
-                char color = ir_rx_task(); //also handles split time
                 printf("side: %d\n", side);
                 printf("front: %d\n", front);
 
@@ -979,7 +989,7 @@ void control(void *arg)
             } else {
                 //manual mode
 
-                printf("Speed: %d\tSteer: %d\n", inputArr[0], inputArr[1]);
+                //printf("Speed: %d\tSteer: %d\n", inputArr[0], inputArr[1]);
 
                 manual_speed_adj(inputArr[0]);
                 manual_steer_adj(inputArr[1]);
@@ -994,7 +1004,11 @@ void control(void *arg)
 
             sprintf(dataBuf, "Speed: %d\tSteer: %d\n", inputArr[0], inputArr[1]);
 
-            udp_client_send(dataBuf);
+            //udp_client_send(dataBuf);
+        } else {
+
+            manual_speed_adj(0);
+
         }
 
         
@@ -1028,7 +1042,7 @@ void adjust(int setpoint, int front, int side) {
 
 void manual_speed_adj(int multiplier) {
 
-    int adjustedSpeed = drive_duty + (50*multiplier);
+    int adjustedSpeed = drive_duty + (-30*multiplier);
 
     printf("pwm signal: %d\n", adjustedSpeed);
 
@@ -1139,11 +1153,11 @@ void app_main(void)
     alpha_init();
     alpha_write(0.0); //set default speed reading to 0
 
+    */
     // timer
     timer_queue = xQueueCreate(10, sizeof(timer_event_t));
     example_tg0_timer_init(TIMER_0, TEST_WITHOUT_RELOAD, TIMER_INTERVAL0_SEC);
-    */
-    // Drive & steering startup routine
+        // Drive & steering startup routine
     pwm_init();
     uart_init();
     printf("Calibrating motors...");
@@ -1158,8 +1172,9 @@ void app_main(void)
     //mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 1200);
 
     // start up driving tasks
-    printf("Starting up!");
+    printf("Starting up!\n\n\n\n\n\n\n\n\n\n\n\n");
     xTaskCreate(control, "control", 4096, NULL, 5, NULL);
     //xTaskCreate(ir_rx_task, "ir_rx_task", 4096, NULL, configMAX_PRIORITIES, NULL);
+    
 }
 
