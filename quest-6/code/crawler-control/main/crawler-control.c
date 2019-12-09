@@ -109,7 +109,7 @@ typedef struct {
 #define STEERING_MAX_DEGREE 180 //Maximum angle in degree upto which servo can rotate
 
 uint32_t angle_duty = 90; // actuation
-uint32_t drive_duty = 1200; // actuation
+uint32_t drive_duty = 1400; // actuation
 char split[100];
 
 ////I2C SETUP///////////////////////////////////////////////////////////////////
@@ -903,6 +903,7 @@ static void mcpwm_example_gpio_initialize(void)
  */
 static uint32_t drive_per_degree_init(uint32_t degree_of_rotation)
 {
+
     uint32_t cal_pulsewidth = 0;
     cal_pulsewidth = (DRIVE_MIN_PULSEWIDTH + (((DRIVE_MAX_PULSEWIDTH - DRIVE_MIN_PULSEWIDTH) * (degree_of_rotation)) / (DRIVE_MAX_DEGREE)));
     return cal_pulsewidth;
@@ -1027,7 +1028,12 @@ void adjust(int setpoint, int front, int side) {
 
 void manual_speed_adj(int multiplier) {
 
-    mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, drive_duty + (30*multiplier));
+    int adjustedSpeed = drive_duty + (50*multiplier);
+
+    printf("pwm signal: %d\n", adjustedSpeed);
+
+
+    mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, adjustedSpeed);
 
 }
 
@@ -1149,7 +1155,8 @@ void app_main(void)
     udp_client_send("Test message");
     xTaskCreate(udp_client_receive, "udp_client_receive", 4096, NULL, 6, NULL); //also used later for getting stop signal
 
-    
+    //mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 1200);
+
     // start up driving tasks
     printf("Starting up!");
     xTaskCreate(control, "control", 4096, NULL, 5, NULL);
