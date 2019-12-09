@@ -109,92 +109,43 @@ function leftFN() {
   console.log("here");
 }
 </script>
-<script>
+<script type="text/javascript">
+
+/* Copyright (C) 2007 Richard Atterer, richardĀ©atterer.net
+   This program is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License, version 2. See the file
+   COPYING for details. */
+
 var imageNr = 0; // Serial number of current image
-      var finished = new Array(); // References to img objects which have finished downloading
-      var paused = false;
-      var previous_time = new Date();
-      var fNi = 0, msAvg = 0, fpsAvg = 0, fcnt = 0, fN = 80, msa = [], wsize = 4;
-      function createImageLayer() {
-        var img = new Image();
-        img.style.position = "absolute";
-        img.style.zIndex = -1;
-        img.onload = imageOnload;
-        img.onclick = imageOnclick;
-        img.width = 512;
-        img.height = 384;
-        img.src = "http://192.168.1.122:8080/?action=snapshot&n=" + (++imageNr);
-        var webcam = document.getElementById("webcam");
-		window.info = document.getElementById('info').firstChild;
-		window.ravgFps = document.getElementById('ravgfps').firstChild;
-		window.ravgMs = document.getElementById('ravgms').firstChild;
-		webcam.insertBefore(img, webcam.firstChild);
-		document.getElementById('fN').firstChild.nodeValue = fN;
-      }
+var finished = new Array(); // References to img objects which have finished downloading
+var paused = false;
 
-	function runningAvgs (delta) {
-		// delta is the measured frame period
-		var len;
-		if (fcnt < fN) {
-			fcnt++;
-			// we need to populate the sample array
-			msa.push(delta);
-			// calculate average period so far
-			msAvg += (delta - msAvg) / fcnt;
+function createImageLayer() {
+  var img = new Image();
+  img.style.position = "absolute";
+  img.style.zIndex = -1;
+  img.onload = imageOnload;
+  img.onclick = imageOnclick;
+  img.src = "http://192.168.1.122:8080/?action=snapshot&n=" + (++imageNr);
+  var webcam = document.getElementById("webcam");
+  webcam.insertBefore(img, webcam.firstChild);
+}
 
-		} else {
-			/*
-				running average (fN samples) according to the formula:
-				rAvg = rAvg - value_fN_samples_back / fN + newest_value / fN
-			*/
-			msAvg += (delta - msa[0])/fN;
-			// drop oldest ms value, msa[0]
-			msa = msa.slice(1);
-			// append newest value, delta
-			msa.push(delta);
-		}
-		// calculate average fps
-		fpsAvg = 1000 / msAvg;
-		/*
-			once every fN frames, check if we need to adjust the averaging window
-			since faster rates seem to need more samples to reach a stable(er) readout
-		*/
-		if (++fNi == fN) {
-			fNi = 0;
-			// new window size
-			fN = parseInt(fpsAvg * wsize);
-			len = fcnt - fN;
-			// if our sample array, msa, has extra samples, then trim it to the new size
-			if (len > 0) {
-				// adjust averaging window (nr of samples)
-				msa = msa.splice(len);
-				// avoid populating the sample array again
-				fcnt = fN;
-			}
-		}
-	}
-      // Two layers are always present (except at the very beginning), to avoid flicker
-      function imageOnload() {
-        this.style.zIndex = imageNr; // Image finished, bring to front!
-        while (1 < finished.length) {
-          var del = finished.shift(); // Delete old image(s) from document
-          del.parentNode.removeChild(del);
-        }
-        finished.push(this);
-        current_time = new Date();
-        delta = current_time.getTime() - previous_time.getTime();
-        fps   = (1000.0 / delta).toFixed(1);
-		runningAvgs(delta);
-        info.nodeValue = delta + " ms (" + fps + " fps)";
-		ravgFps.nodeValue = fpsAvg.toFixed(1);
-		ravgMs.nodeValue = msAvg.toFixed(0);
-		previous_time = current_time;
-        if (!paused) createImageLayer();
-      }
-      function imageOnclick() { // Clicking on the image will pause the stream
-        paused = !paused;
-        if (!paused) createImageLayer();
-      }
+// Two layers are always present (except at the very beginning), to avoid flicker
+function imageOnload() {
+  this.style.zIndex = imageNr; // Image finished, bring to front!
+  while (1 < finished.length) {
+    var del = finished.shift(); // Delete old image(s) from document
+    del.parentNode.removeChild(del);
+  }
+  finished.push(this);
+  if (!paused) createImageLayer();
+}
+
+function imageOnclick() { // Clicking on the image will pause the stream
+  paused = !paused;
+  if (!paused) createImageLayer();
+}
 
 </script>
 <style>
@@ -207,24 +158,36 @@ var imageNr = 0; // Serial number of current image
 <body onload="createImageLayer();">
   <div class="container" style="height:100vh; width:100vw" >
   <div class ="row" style="height:60vh; width:100vw; background-color:green">
-    <button type="button" id="upBtn" class="btn btn-primary" style="margin-left:50%; margin-top:10%; width:200px; height: 100px; font-size: 30px;">
+    <div class="row" style="height:50vh; width:50vw; text-align: center; display: inline-block; margin-top: 10%; margin-left: 17%"
+    <div id="webcam"><noscript><img src="http://192.168.1.122:8080/?action=snapshot" style="width: 500px; height: 600px;"/></noscript></div>
+
+
+  </div>
+  <div class = "row justify-content-md-center" style="height:40vh; width:100vw; background-color:blue;">
+    <button type="button" id="upBtn" class="btn btn-primary" style="margin-left:24.75%; margin-top:1%; width:200px; height: 100px; font-size: 30px;">
    Forward!
-</button><br>
-<button type="button" id="leftBtn" onclick="leftFN()"class="btn btn-primary" style="margin-left:44%; margin-right:0%; width:200px; height: 100px; font-size: 30px;">
+</button>
+<button type="button" class="btn btn-primary" style="margin-left: 45%; width: 150px; height: 50px; font-size: 20px;">Split 1 <span class="badge">1:05</span></button>
+
+<br>
+<button type="button" id="leftBtn" onclick="leftFN()"class="btn btn-primary" style="margin-left:19%; margin-right:0%; width:200px; height: 100px; font-size: 30px;">
 Left!
 </button>
 <button type="button" id="rightBtn" class="btn btn-primary" style="width:200px; height: 100px; font-size: 30px;">
 Right!
 </button>
+<button type="button" class="btn btn-primary" style="margin-left: 38.5%; width: 150px; height: 50px; font-size: 20px;">Split 2 <span class="badge">1:05</span></button>
 
-<button type="button" id="downBtn" class="btn btn-primary" style="margin-left:49.75%;width:200px; height: 100px; font-size: 30px;">
+
+<br />
+
+<button type="button" id="downBtn" class="btn btn-primary" style="margin-left:24.75%;width:200px; height: 100px; font-size: 30px;">
 Backward!
 </button>
+<button type="button" class="btn btn-primary" style="margin-left: 45%; width: 150px; height: 50px; font-size: 20px;">Split 3 <span class="badge">1:05</span></button>
+
+    </div>
   </div>
-  <div class = "row justify-content-md-center" style="height:40vh; width:100vw; background-color:blue;">
-    <div id="webcam" style="width:512px;height:394px"><noscript><img src="http://192.168.1.122:8080/?action=snapshot" width="512px" height="384px" /></noscript></div>
-  </div>
-</div>
 
 <script>
 function find() {
