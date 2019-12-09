@@ -154,6 +154,11 @@ static const int RX_BUF_SIZEus = 120;
 #define ID 3
 #define COLOR 'R'
 
+//control flags
+int prevId = 1; //last beacon seen
+bool isAutonomous = true;
+int inputArr[3] = {0, 0, 1};
+
 // Variables for my ID, minVal and status plus string fragments
 char start = 0x1B;
 char myID = (char) ID;
@@ -165,7 +170,7 @@ float base_x_acceleration;
 ////WIFI & SOCKET SETUP///////////////////////////////////////////////////////////////////
 
 //socket variables
-#define HOST_IP_ADDR "192.168.1.102"                    //target server ip
+#define HOST_IP_ADDR "192.168.1.101"                    //target server ip
 #define PORT 3333                                       //target server port
 char rx_buffer[128];
 char addr_str[128];
@@ -312,6 +317,20 @@ static void udp_client_receive() {
                 //ESP_LOGI(TAG, "%s", rx_buffer);
                 printf("received string: %s\n", rx_buffer);
 
+                // Extract the first token
+                char * token = strtok(rx_buffer, " ");
+                
+                // loop through the string to extract all other tokens
+                int i = 0;
+                while(token != NULL) {
+                    int dir = atoi(token);
+                    printf( " %d\n", dir ); //printing each token
+                    inputArr[i] = dir;
+                    token = strtok(NULL, " ");
+                    i++;
+                }
+
+                /*
                 if (strstr(rx_buffer, "start") != NULL) { //0 if equal
                     running = true;
                 } else if (strstr(rx_buffer, "stop") != NULL) {
@@ -330,7 +349,7 @@ static void udp_client_receive() {
                         // decrease speed = 0
                         manual_speed_adj(0);
                     }
-                } else if (strstr(rx_buffer, "left") != NULL) {
+                } else if (strstr(rx_buffer, "right") != NULL) {
                     if (mode) {
                         // right = 1
                         manual_steer_adj(1);
@@ -341,6 +360,7 @@ static void udp_client_receive() {
                         manual_steer_adj(0);
                     }
                 }
+                */
 
             }
 
@@ -363,7 +383,7 @@ static void udp_client_receive() {
 static void udp_client_send(char* message) {
 
     //assuming ip4v only
-    printf("%s\n", message);
+    //printf("%s\n", message);
 
     //send message, and print error if anything failed
     int err = sendto(sock, message, strlen(message), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
@@ -718,10 +738,10 @@ bool checkCheckSum(uint8_t *p, int len) {
 }
 
 // Receives task -- looks for Start byte then stores received values
-void ir_rx_task () {
+char ir_rx_task() {
   // Buffer for input data
   uint8_t *data_in = (uint8_t *) malloc(RX_BUF_SIZEir);
-  while (1) {
+  //while (1) {
     int len_in = uart_read_bytes(UART_NUM_2, data_in, RX_BUF_SIZEir, 20 / portTICK_RATE_MS);
     if (len_in >0) {
         printf("%d\n", len_in);
@@ -740,12 +760,40 @@ void ir_rx_task () {
         char lightColor = data_in[i+1];
         uint8_t id = data_in[i+2];
 
-        if (checkCheckSum(data_in, 4)) {
-            printf("Checksum checks out! Light is: %c\n", lightColor);
+        if (lightColor == 'G' || lightColor == 'Y' || lightColor == 'R') {
+
+            if (checkCheckSum(data_in, 4)) {
+                printf("Checksum checks out! Light is '%c', ID is %d\n", lightColor, id);
+
+                if (id != prevId) {
+
+                    char timeBuf[10];
+
+                    /*
+                    itoa(getSplit(), timeBuf);
+                    udp_client_send(getTime);
+                    resetSplit();
+                    */
+                    prevId = id;
+                }
+
+                if (id == 3) {
+                    printf("Switching to manual...");
+                    isAutonomous = false;
+                }
+
+
+            }
+
+            return lightColor;
+
+            
+        } else {
+            printf("Invalid checksum!");
         }
 
 
-        ESP_LOG_BUFFER_HEXDUMP(TAG, data_in, len_out, ESP_LOG_INFO);
+        //ESP_LOG_BUFFER_HEXDUMP(TAG, data_in, len_out, ESP_LOG_INFO);
         //}
      //}
     }
@@ -753,8 +801,11 @@ void ir_rx_task () {
       // printf("Nothing received.\n");
     }
     vTaskDelay(5 / portTICK_PERIOD_MS);
-  }
-  free(data_in);
+    //}
+    free(data_in);
+
+    return '\0';
+
 }
 
 int uart_sendData_front(const char* logName, const char* data)
@@ -793,7 +844,7 @@ int rx_task_front()
     int sum = 0;
     int count = 0;
     //read raw input
-    const int rxBytes = uart_read_bytes(UART_NUM_0, data, RX_BUF_SIZEus, 100 / portTICK_RATE_MS);
+    const int rxBytes = uart_read_bytes(UART_NUM_0, data, RX_BUF_SIZEus, 50 / portTICK_RATE_MS);
     //if got data back
     if (rxBytes > 0) {
         while(data[i] != 0x52) {
@@ -819,7 +870,7 @@ int rx_task_side()
     int sum = 0;
     int count = 0;
     //read raw input
-    const int rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZEus, 100 / portTICK_RATE_MS);
+    const int rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZEus, 50 / portTICK_RATE_MS);
     //if got data back
     if (rxBytes > 0) {
         while(data[i] != 0x52) {
@@ -906,12 +957,47 @@ void control(void *arg)
     double setpoint_st = 90; // cm from side wall
     uint32_t angle;
     //mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, drive_duty);
-    while (running) {
+    while (1) {
+
+        running = inputArr[2]; //index 2 is running or not
         
-        int side = rx_task_side();
-        int front = rx_task_front();
-        printf("side: %d\n", side);
-        printf("front: %d\n", front);
+        if (running) {
+
+            if (isAutonomous) {
+                int side = rx_task_side();
+                int front = rx_task_front();
+                char color = ir_rx_task(); //also handles split time
+                printf("side: %d\n", side);
+                printf("front: %d\n", front);
+
+                //AUTONOMOUS STOPLIGHT HANDLING CODE HERE
+
+
+
+
+            } else {
+                //manual mode
+
+                printf("Speed: %d\tSteer: %d\n", inputArr[0], inputArr[1]);
+
+                manual_speed_adj(inputArr[0]);
+                manual_steer_adj(inputArr[1]);
+
+
+
+                vTaskDelay(50/portTICK_RATE_MS);
+
+            }
+
+            char dataBuf[100];
+
+            sprintf(dataBuf, "Speed: %d\tSteer: %d\n", inputArr[0], inputArr[1]);
+
+            udp_client_send(dataBuf);
+        }
+
+        
+
         /*
         int avgDistFront = 0;//rx_task_front();
         adjust(setpoint_st, avgDistFront, avgDistSide);
@@ -939,23 +1025,15 @@ void adjust(int setpoint, int front, int side) {
 
 // Manual Control //////////////////////////////////////////////////////
 
-void manual_speed_adj(int mode) {
-    if (mode == 1) {
-        mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, drive_duty-10);
-    } else {
-        mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, drive_duty+10);
-    }
+void manual_speed_adj(int multiplier) {
+
+    mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, drive_duty + (30*multiplier));
+
 }
 
-void manual_steer_adj(int mode) {
-    int angle;
-    if (mode == 1) {
-        angle = steering_per_degree_init(angle_duty + 1);
-        mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
-    } else {
-        angle = steering_per_degree_init(angle_duty - 1);
-        mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
-    }
+void manual_steer_adj(int multiplier) {
+    int angle = steering_per_degree_init(angle_duty + (30*multiplier));
+    mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
 }
 
 // Timer setup //////////////////////////////////////////////////////////////
@@ -1044,11 +1122,11 @@ static void example_tg0_timer_init(int timer_idx,
 
 void app_main(void)
 {
-    /*
+    
     // networking startup routines
     wifi_init_sta();
     udp_init();
-
+    /*
     // I2C display startup routine
     i2c_master_init();
     i2c_scanner();
@@ -1065,19 +1143,16 @@ void app_main(void)
     printf("Calibrating motors...");
     calibrateESC();
 
-    /*
+    
     // wait for "start" signal from Node.js UDP server
     printf("Waiting for start signal...\n");
     udp_client_send("Test message");
     xTaskCreate(udp_client_receive, "udp_client_receive", 4096, NULL, 6, NULL); //also used later for getting stop signal
-    while (!running) {
-        vTaskDelay(100/portTICK_RATE_MS);
-    }
-    */
+
     
     // start up driving tasks
     printf("Starting up!");
     xTaskCreate(control, "control", 4096, NULL, 5, NULL);
-    xTaskCreate(ir_rx_task, "ir_rx_task", 4096, NULL, configMAX_PRIORITIES, NULL);
+    //xTaskCreate(ir_rx_task, "ir_rx_task", 4096, NULL, configMAX_PRIORITIES, NULL);
 }
 
