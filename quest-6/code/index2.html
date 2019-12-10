@@ -1,0 +1,37 @@
+<!-- client side -->
+
+<!doctype html>
+<html>
+
+<!-- HTML HEAD -->
+<head>
+	<title>TEST</title>
+</head>
+	<script>
+
+		const Http = new XMLHttpRequest();
+		const url='http://localhost:3000/speed';
+		Http.open("POST", url);
+		Http.setRequestHeader("Content-Type", "application/json");
+		Http.send(JSON.stringify({"speed": "0"}));
+
+		Http.onreadystatechange = (e) => {
+		  console.log("meep");
+		  console.log(e)
+		}
+		//console.log(Http);
+		
+	
+	</script>
+
+<body>
+	<!-- HTML layout -->
+  <h1>Hello world -- test 1, 2, 3</h1> <br>
+	<div> Received: <p id="message_disp"></p> </div>
+
+	<!-- Script to handle socket -->
+
+</body>
+
+</html>
+

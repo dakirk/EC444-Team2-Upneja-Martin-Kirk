@@ -6,34 +6,78 @@
    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
    CONDITIONS OF ANY KIND, either express or implied.
 */
+
+//stdlib headers
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
 
+//freeRTOS headers
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_types.h"
+#include "freertos/event_groups.h"
 #include "freertos/queue.h"
-#include "esp_attr.h"
-#include "esp_system.h"
-#include "esp_log.h"
-#include "driver/uart.h"
 
+//drivers
+#include "driver/uart.h"
 #include "driver/gpio.h"
 #include "driver/mcpwm.h"
 #include "driver/i2c.h"
-#include "soc/mcpwm_periph.h"
-#include "./ADXL343.h"
-#include "displaychars.h"
 #include "driver/periph_ctrl.h"
 #include "driver/timer.h"
+#include "driver/pcnt.h"
+
+//system headers
+#include "esp_types.h"
+#include "esp_attr.h"
+#include "esp_system.h"
+#include "esp_log.h"
+#include "esp_wifi.h"
+#include "esp_event.h"
+
+//motor control
+#include "soc/mcpwm_periph.h"
+
+//networking
+#include "nvs_flash.h"
+#include "tcpip_adapter.h"
+#include "lwip/err.h"
+#include "lwip/sockets.h"
+#include "lwip/sys.h"
+#include <lwip/netdb.h>
+
+//custom headers
+#include "./ADXL343.h"
+#include "displaychars.h"
+
+// PID Init ////////////////////////////////////////////////////////////////////////
+
+// steering
+double setpoint_st = 90; // cm from side wall
+double previous_error_st = 0.0;
+double integral_st = 0.0;
+double derivative_st = 0.0;
+
+int side_dist = 0; // input
+uint32_t angle_duty = 90; // actuation
+
+// speed
+double setpoint_sp = 0.3;
+double previous_error_sp = 0.0;
+double integral_sp = 0.0;
+double derivative_sp = 0.0;
+
+double speed = 0.0; // input
+uint32_t drive_duty = 1200; // actuation
 
 // Timer Init //////////////////////////////////////////////////////////////////////
-double dt = 0.001;
+double dt = 1;
 
 #define TIMER_DIVIDER         16  //  Hardware timer clock divider
 #define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)  // convert counter value to seconds
-#define TIMER_INTERVAL0_SEC   (3) // sample test interval for the first timer
+
+#define TIMER_INTERVAL0_SEC   (dt) // sample test interval for the first timer
+
 #define TEST_WITHOUT_RELOAD   0        // testing will be done without auto reload
 
 typedef struct {
@@ -44,6 +88,32 @@ typedef struct {
 } timer_event_t;
 
 xQueueHandle timer_queue;
+
+////PCNT SETUP///////////////////////////////////////////////////////////////////
+
+//pcnt settings
+#define PCNT_TEST_UNIT      PCNT_UNIT_0
+#define PCNT_H_LIM_VAL      100
+#define PCNT_L_LIM_VAL     -10
+#define PCNT_THRESH1_VAL    100
+#define PCNT_THRESH0_VAL    0.20F
+#define PCNT_INPUT_SIG_IO   34  // Pulse Input GPIO
+#define PCNT_INPUT_CTRL_IO  5  // Control GPIO HIGH=count up, LOW=count down
+#define LEDC_OUTPUT_IO      18 // Output GPIO of a sample 1 Hz pulse generator
+
+int timeCounter = 0;
+int blackStripeCount = 0;
+
+xQueueHandle pcnt_evt_queue;   // A queue to handle pulse counter events
+pcnt_isr_handle_t user_isr_handle = NULL; //user's ISR service handle
+
+/* A sample structure to pass events from the PCNT
+ * interrupt handler to the main program.
+ */
+typedef struct {
+    int unit;  // the PCNT unit that originated an interrupt
+    uint32_t status; // information on the event type that caused the interrupt
+} pcnt_evt_t;
 
 ////DRIVING SETUP///////////////////////////////////////////////////////////////////
 
@@ -85,13 +155,324 @@ xQueueHandle timer_queue;
 ////UART SETUP///////////////////////////////////////////////////////////////////
 static const int RX_BUF_SIZE = 128;
 
-#define TXD_PIN (GPIO_NUM_17)
-#define RXD_PIN (GPIO_NUM_16)
+#define TXD_PIN_FRONT (GPIO_NUM_17)
+#define RXD_PIN_FRONT (GPIO_NUM_16)
+#define TXD_PIN_SIDE  (GPIO_NUM_4)
+#define RXD_PIN_SIDE  (GPIO_NUM_36)
 
-double speed = 0.0;
 float base_x_acceleration;
-uint32_t angle_duty = 90;
-uint32_t drive_duty = 1270;
+
+////WIFI & SOCKET SETUP///////////////////////////////////////////////////////////////////
+
+//socket variables
+#define HOST_IP_ADDR "192.168.1.102"                    //target server ip
+#define PORT 3333                                       //target server port
+char rx_buffer[128];
+char addr_str[128];
+int addr_family;
+int ip_protocol;
+int sock;                                               //socket id?
+struct sockaddr_in dest_addr;                           //socket destination info
+
+//wifi variables
+#define EXAMPLE_ESP_WIFI_SSID "Group_2"
+#define EXAMPLE_ESP_WIFI_PASS "smartkey"
+#define EXAMPLE_ESP_MAXIMUM_RETRY 10                    //CONFIG_ESP_MAXIMUM_RETRY
+static EventGroupHandle_t s_wifi_event_group;           //FreeRTOS event group to signal when we are connected
+const int WIFI_CONNECTED_BIT = BIT0;                    //The event group allows multiple bits for each event, but we only care about one event - are we connected to the AP with an IP?
+static const char *TAG = "wifi station";
+static int s_retry_num = 0;
+
+bool running = true;//false;
+
+//function headers
+void pid_speed();
+void pid_steering();
+
+////WIFI SETUP/////////////////////////////////////////////////////////////////////
+
+//wifi event handler
+static void event_handler(void* arg, esp_event_base_t event_base, 
+                                int32_t event_id, void* event_data)
+{
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
+        esp_wifi_connect();
+    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        if (s_retry_num < EXAMPLE_ESP_MAXIMUM_RETRY) {
+            esp_wifi_connect();
+            xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+            s_retry_num++;
+            ESP_LOGI(TAG, "retry to connect to the AP");
+        }
+        ESP_LOGI(TAG,"connect to the AP fail");
+    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+        ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
+        ESP_LOGI(TAG, "got ip:%s",
+                 ip4addr_ntoa(&event->ip_info.ip));
+        s_retry_num = 0;
+        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+    }
+}
+
+//connect to wifi
+void wifi_init_sta(void) {
+
+    //Initialize NVS
+    printf("Wifi setup part 1\n");
+    esp_err_t ret = nvs_flash_init();
+    printf("Wifi setup part 2\n");
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+      ESP_ERROR_CHECK(nvs_flash_erase());
+      ret = nvs_flash_init();
+    }
+
+    printf("Wifi setup part 3\n");
+
+    ESP_ERROR_CHECK(ret);
+    
+    ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
+
+    s_wifi_event_group = xEventGroupCreate();
+    tcpip_adapter_init();
+
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL));
+
+    wifi_config_t wifi_config = {
+        .sta = {
+            .ssid = EXAMPLE_ESP_WIFI_SSID,
+            .password = EXAMPLE_ESP_WIFI_PASS
+        },
+    };
+
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
+    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config) );
+    ESP_ERROR_CHECK(esp_wifi_start() );
+
+    ESP_LOGI(TAG, "wifi_init_sta finished.");
+    ESP_LOGI(TAG, "connect to ap SSID:%s password:%s",
+             EXAMPLE_ESP_WIFI_SSID, EXAMPLE_ESP_WIFI_PASS);
+
+}
+
+
+////SOCKET SETUP/////////////////////////////////////////////////////////////////////
+
+static void udp_init() {
+
+    addr_family = AF_INET;
+    ip_protocol = IPPROTO_IP;
+
+    //socket setup struct
+    dest_addr.sin_addr.s_addr = inet_addr(HOST_IP_ADDR);
+    dest_addr.sin_family = AF_INET;
+    dest_addr.sin_port = htons(PORT);
+    inet_ntoa_r(dest_addr.sin_addr, addr_str, sizeof(addr_str) - 1);
+
+    //establish socket connection
+    sock = socket(addr_family, SOCK_DGRAM, ip_protocol);
+    if (sock < 0) {
+        ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
+    }
+    ESP_LOGI(TAG, "Socket created, sending to %s:%d", HOST_IP_ADDR, PORT);
+}
+
+static void udp_client_receive() {
+
+    while(1) {
+
+        while(1) {
+
+            printf("waiting for a message\n");
+
+            struct sockaddr_in source_addr; // Large enough for both IPv4 or IPv6
+            socklen_t socklen = sizeof(source_addr);
+            int len = recvfrom(sock, rx_buffer, sizeof(rx_buffer) - 1, 0, (struct sockaddr *)&source_addr, &socklen);
+
+            printf("got one!\n");
+
+            // Error occurred during receiving
+            if (len < 0) {
+                ESP_LOGE(TAG, "recvfrom failed: errno %d", errno);
+                break;
+            }
+            // Data received
+            else {
+                rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
+                ESP_LOGI(TAG, "Received %d bytes from %s:", len, addr_str);
+                //ESP_LOGI(TAG, "%s", rx_buffer);
+                printf("received string: %s\n", rx_buffer);
+
+                if (strstr(rx_buffer, "start") != NULL) { //0 if equal
+                    running = true;
+                } else if (strstr(rx_buffer, "stop") != NULL) {
+                    running = false;
+                }
+
+            }
+
+        }
+
+        //shut down socket if anything failed
+        if (sock != -1) {
+            ESP_LOGE(TAG, "Shutting down socket and restarting...");
+            shutdown(sock, 0);
+            close(sock);
+            udp_init();
+        }
+
+    }
+
+    vTaskDelete(NULL);
+
+}
+
+static void udp_client_send(char* message) {
+
+    //assuming ip4v only
+    printf("%s\n", message);
+
+    //send message, and print error if anything failed
+    int err = sendto(sock, message, strlen(message), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+    if (err < 0) {
+        ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
+    }
+}
+
+////PCNT FUNCTIONS///////////////////////////////////////////////////////////////////
+
+/* Decode what PCNT's unit originated an interrupt
+ * and pass this information together with the event type
+ * the main program using a queue.
+ */
+static void IRAM_ATTR pcnt_example_intr_handler(void *arg)
+{
+    uint32_t intr_status = PCNT.int_st.val;
+    int i;
+    pcnt_evt_t evt;
+    portBASE_TYPE HPTaskAwoken = pdFALSE;
+
+    for (i = 0; i < PCNT_UNIT_MAX; i++) {
+        if (intr_status & (BIT(i))) {
+            evt.unit = i;
+            /* Save the PCNT event type that caused an interrupt
+               to pass it to the main program */
+            evt.status = PCNT.status_unit[i].val;
+            PCNT.int_clr.val = BIT(i);
+            xQueueSendFromISR(pcnt_evt_queue, &evt, &HPTaskAwoken);
+            if (HPTaskAwoken == pdTRUE) {
+                portYIELD_FROM_ISR();
+            }
+        }
+    }
+}
+
+/* Initialize PCNT functions:
+ *  - configure and initialize PCNT
+ *  - set up the input filter
+ *  - set up the counter events to watch
+ */
+static void pcnt_example_init(void)
+{
+
+    /* Initialize PCNT event queue and PCNT functions */
+    pcnt_evt_queue = xQueueCreate(10, sizeof(pcnt_evt_t));
+    /* Prepare configuration for the PCNT unit */
+    pcnt_config_t pcnt_config = {
+        // Set PCNT input signal and control GPIOs
+        .pulse_gpio_num = PCNT_INPUT_SIG_IO,
+        .ctrl_gpio_num = PCNT_INPUT_CTRL_IO,
+        .channel = PCNT_CHANNEL_0,
+        .unit = PCNT_TEST_UNIT,
+        // What to do on the positive / negative edge of pulse input?
+        .pos_mode = PCNT_COUNT_INC,   // Count up on the positive edge
+        .neg_mode = PCNT_COUNT_DIS,   // Keep the counter value on the negative edge
+        // What to do when control input is low or high?
+        .lctrl_mode = PCNT_MODE_REVERSE, // Reverse counting direction if low
+        .hctrl_mode = PCNT_MODE_KEEP,    // Keep the primary counter mode if high
+        // Set the maximum and minimum limit values to watch
+        .counter_h_lim = PCNT_H_LIM_VAL,
+        .counter_l_lim = PCNT_L_LIM_VAL,
+    };
+    /* Initialize PCNT unit */
+    pcnt_unit_config(&pcnt_config);
+
+    /* Configure and enable the input filter */
+    pcnt_set_filter_value(PCNT_TEST_UNIT, 100);
+    pcnt_filter_enable(PCNT_TEST_UNIT);
+
+    /* Set threshold 0 and 1 values and enable events to watch */
+    pcnt_set_event_value(PCNT_TEST_UNIT, PCNT_EVT_THRES_1, PCNT_THRESH1_VAL);
+    pcnt_event_enable(PCNT_TEST_UNIT, PCNT_EVT_THRES_1);
+    pcnt_set_event_value(PCNT_TEST_UNIT, PCNT_EVT_THRES_0, PCNT_THRESH0_VAL);
+    pcnt_event_enable(PCNT_TEST_UNIT, PCNT_EVT_THRES_0);
+    /* Enable events on zero, maximum and minimum limit values */
+    pcnt_event_enable(PCNT_TEST_UNIT, PCNT_EVT_ZERO);
+    pcnt_event_enable(PCNT_TEST_UNIT, PCNT_EVT_H_LIM);
+    pcnt_event_enable(PCNT_TEST_UNIT, PCNT_EVT_L_LIM);
+
+    /* Initialize PCNT's counter */
+    pcnt_counter_pause(PCNT_TEST_UNIT);
+    pcnt_counter_clear(PCNT_TEST_UNIT);
+
+    /* Register ISR handler and enable interrupts for PCNT unit */
+    pcnt_isr_register(pcnt_example_intr_handler, NULL, 0, &user_isr_handle);
+    pcnt_intr_enable(PCNT_TEST_UNIT);
+
+    /* Everything is set up, now go to counting */
+    pcnt_counter_resume(PCNT_TEST_UNIT);
+}
+
+static int pcnt_read(int delay) {
+    
+    pcnt_example_init();
+
+    int16_t count = 0;
+    pcnt_evt_t evt;
+    portBASE_TYPE res;
+    /* Wait for the event information passed from PCNT's interrupt handler.
+     * Once received, decode the event type and print it on the serial monitor.
+     */
+    res = xQueueReceive(pcnt_evt_queue, &evt, delay / portTICK_PERIOD_MS);
+    if (res == pdTRUE) {
+        pcnt_get_counter_value(PCNT_TEST_UNIT, &count);
+        printf("Event PCNT unit[%d]; cnt: %d\n", evt.unit, count);
+        if (evt.status & PCNT_STATUS_THRES1_M) {
+            printf("THRES1 EVT\n");
+        }
+        if (evt.status & PCNT_STATUS_THRES0_M) {
+            printf("THRES0 EVT\n");
+        }
+        if (evt.status & PCNT_STATUS_L_LIM_M) {
+            printf("L_LIM EVT\n");
+        }
+        if (evt.status & PCNT_STATUS_H_LIM_M) {
+            printf("H_LIM EVT\n");
+        }
+        if (evt.status & PCNT_STATUS_ZERO_M) {
+            printf("ZERO EVT\n");
+        }
+    } else {
+        pcnt_get_counter_value(PCNT_TEST_UNIT, &count);
+        //printf("Current counter value :%d\n", count);
+    }
+
+    //clear the internal counter for the next reading
+    pcnt_counter_clear(PCNT_TEST_UNIT);
+
+    if(user_isr_handle) {
+        //Free the ISR service handle.
+        esp_intr_free(user_isr_handle);
+        user_isr_handle = NULL;
+    }
+
+    return count;
+}
 
 ////I2C FUNCTIONS///////////////////////////////////////////////////////////////////
 
@@ -152,227 +533,6 @@ static void i2c_scanner() {
         printf("- No I2C devices found!" "\n");
     printf("\n");
 }
-
-// ADXL343 Functions ///////////////////////////////////////////////////////////
-
-// Get Device ID
-int getAccelDeviceID(uint8_t *data) {
-  int ret;
-  i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-  i2c_master_start(cmd);
-  i2c_master_write_byte(cmd, ( ACCEL_ADDR << 1 ) | WRITE_BIT, ACK_CHECK_EN);
-  i2c_master_write_byte(cmd, ADXL343_REG_DEVID, ACK_CHECK_EN);
-  i2c_master_start(cmd);
-  i2c_master_write_byte(cmd, ( ACCEL_ADDR << 1 ) | READ_BIT, ACK_CHECK_EN);
-  i2c_master_read_byte(cmd, data, ACK_CHECK_DIS);
-  i2c_master_stop(cmd);
-  ret = i2c_master_cmd_begin(I2C_EXAMPLE_MASTER_NUM, cmd, 1000 / portTICK_RATE_MS);
-  i2c_cmd_link_delete(cmd);
-  return ret;
-}
-
-// Write one byte to register
-void writeAccelRegister(uint8_t reg, uint8_t data) {
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    //start command
-    i2c_master_start(cmd);
-    //ACCEL address followed by write bit
-    i2c_master_write_byte(cmd, ( ACCEL_ADDR << 1 ) | WRITE_BIT, ACK_CHECK_EN);
-    //register pointer sent
-    i2c_master_write_byte(cmd, reg, ACK_CHECK_EN);
-    //data sent
-    i2c_master_write_byte(cmd, data, ACK_CHECK_DIS);
-    //stop command
-    i2c_master_stop(cmd);
-    i2c_master_cmd_begin(I2C_EXAMPLE_MASTER_NUM, cmd, 1000 / portTICK_RATE_MS);
-    i2c_cmd_link_delete(cmd);
-}
-
-// Read register
-uint8_t readAccelRegister(uint8_t reg) {
-    uint8_t value;
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    //start command
-    i2c_master_start(cmd);
-    //slave followed by write bit
-    i2c_master_write_byte(cmd, ( ACCEL_ADDR << 1 ) | WRITE_BIT, ACK_CHECK_EN);
-    //register pointer sent
-    i2c_master_write_byte(cmd, reg, ACK_CHECK_EN);
-    //repeated start command
-    i2c_master_start(cmd);
-    //slave followed by read bit
-    i2c_master_write_byte(cmd, ( ACCEL_ADDR << 1 ) | READ_BIT, ACK_CHECK_EN);
-    //place data from register into bus
-    i2c_master_read_byte(cmd, &value, ACK_CHECK_DIS);
-    //stop command
-    i2c_master_stop(cmd);
-    i2c_master_cmd_begin(I2C_EXAMPLE_MASTER_NUM, cmd, 1000 / portTICK_RATE_MS);
-    i2c_cmd_link_delete(cmd);
-    return value;
-}
-
-// read 16 bits (2 bytes)
-int16_t readAccel16(uint8_t reg) {
-    uint8_t val1;
-    uint8_t val2;
-    val1 = readAccelRegister(reg);
-    if (reg == 41) {
-        val2 = 0;
-    } else {
-        val2 = readAccelRegister(reg+1);
-    }
-    return (((int16_t)val2 << 8) | val1);
-}
-
-void setRange(range_t range) {
-    // Red the data format register to preserve bits
-    uint8_t format = readAccelRegister(ADXL343_REG_DATA_FORMAT);
-
-    // Update the data rate
-    format &= ~0x0F;
-    format |= range;
-
-    // Make sure that the FULL-RES bit is enabled for range scaling
-    format |= 0x08;
-
-    // Write the register back to the IC
-    writeAccelRegister(ADXL343_REG_DATA_FORMAT, format);
-
-}
-
-range_t getRange(void) {
-    // Red the data format register to preserve bits
-    return (range_t)(readAccelRegister(ADXL343_REG_DATA_FORMAT) & 0x03);
-}
-
-dataRate_t getDataRate(void) {
-    return (dataRate_t)(readAccelRegister(ADXL343_REG_BW_RATE) & 0x0F);
-}
-
-static void accel_init() {
-
-  // Check for ADXL343
-  uint8_t deviceID;
-  getAccelDeviceID(&deviceID);
-  if (deviceID == 0xE5) {
-    printf("\n>> Found ADAXL343\n");
-  }
-  
-  // Disable interrupts
-  writeAccelRegister(ADXL343_REG_INT_ENABLE, 0);
-
-  // Set range
-  setRange(ADXL343_RANGE_2_G);
-  // Display range
-  printf  ("- Range:         +/- ");
-  switch(getRange()) {
-    case ADXL343_RANGE_16_G:
-      printf  ("16 ");
-      break;
-    case ADXL343_RANGE_8_G:
-      printf  ("8 ");
-      break;
-    case ADXL343_RANGE_4_G:
-      printf  ("4 ");
-      break;
-    case ADXL343_RANGE_2_G:
-      printf  ("2 ");
-      break;
-    default:
-      printf  ("?? ");
-      break;
-  }
-  printf(" g\n");
-
-  // Display data rate
-  printf ("- Data Rate:    ");
-  switch(getDataRate()) {
-    case ADXL343_DATARATE_3200_HZ:
-      printf  ("3200 ");
-      break;
-    case ADXL343_DATARATE_1600_HZ:
-      printf  ("1600 ");
-      break;
-    case ADXL343_DATARATE_800_HZ:
-      printf  ("800 ");
-      break;
-    case ADXL343_DATARATE_400_HZ:
-      printf  ("400 ");
-      break;
-    case ADXL343_DATARATE_200_HZ:
-      printf  ("200 ");
-      break;
-    case ADXL343_DATARATE_100_HZ:
-      printf  ("100 ");
-      break;
-    case ADXL343_DATARATE_50_HZ:
-      printf  ("50 ");
-      break;
-    case ADXL343_DATARATE_25_HZ:
-      printf  ("25 ");
-      break;
-    case ADXL343_DATARATE_12_5_HZ:
-      printf  ("12.5 ");
-      break;
-    case ADXL343_DATARATE_6_25HZ:
-      printf  ("6.25 ");
-      break;
-    case ADXL343_DATARATE_3_13_HZ:
-      printf  ("3.13 ");
-      break;
-    case ADXL343_DATARATE_1_56_HZ:
-      printf  ("1.56 ");
-      break;
-    case ADXL343_DATARATE_0_78_HZ:
-      printf  ("0.78 ");
-      break;
-    case ADXL343_DATARATE_0_39_HZ:
-      printf  ("0.39 ");
-      break;
-    case ADXL343_DATARATE_0_20_HZ:
-      printf  ("0.20 ");
-      break;
-    case ADXL343_DATARATE_0_10_HZ:
-      printf  ("0.10 ");
-      break;
-    default:
-      printf  ("???? ");
-      break;
-  }
-  printf(" Hz\n\n");
-
-  // Enable measurements
-  writeAccelRegister(ADXL343_REG_POWER_CTL, 0x08);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-// function to get acceleration - NOT THREAD SAFE
-void getAccel(float * xp, float *yp, float *zp) {
-    *xp = readAccel16(ADXL343_REG_DATAX0) * ADXL343_MG2G_MULTIPLIER * SENSORS_GRAVITY_STANDARD;
-    *yp = readAccel16(ADXL343_REG_DATAY0) * ADXL343_MG2G_MULTIPLIER * SENSORS_GRAVITY_STANDARD;
-    *zp = readAccel16(ADXL343_REG_DATAZ0) * ADXL343_MG2G_MULTIPLIER * SENSORS_GRAVITY_STANDARD;
-    printf("X: %.2f \t Y: %.2f \t Z: %.2f\n", *xp, *yp, *zp);
-}
-
-// function to print roll and pitch
-void calcRP(float x, float y, float z){
-    float roll = atan2(y , z) * 57.3;
-    float pitch = atan2((-1*x) , sqrt(y*y + z*z)) * 57.3;
-    printf("roll: %.2f \t pitch: %.2f \n", roll, pitch);
-}
-
-/*
-// Task to continuously poll acceleration and calculate roll and pitch
-static void test_adxl343() {
-    printf("\n>> Polling ADAXL343\n");
-    while (1) {
-        float xVal, yVal, zVal;
-        getAccel(&xVal, &yVal, &zVal);
-        calcRP(xVal, yVal, zVal);
-        vTaskDelay(500 / portTICK_RATE_MS);
-    }
-}*/
 
 // Alphanumeric Functions //////////////////////////////////////////////////////
 
@@ -440,24 +600,19 @@ void alpha_write(double number) {
     int i, ret;
 
     uint16_t displaybuffer[8];
-    char strIn[317];
+    char strIn[317]; //input string is 317 chars because largest possible sprintf output is 317 chars
 
-    //itoa(number, strIn, 10);
     sprintf(strIn, "%04f", number);
-    //displaybuffer[0] = alphafonttable['a']; //0b0101001000000001;  // T.
-    //displaybuffer[1] = alphafonttable['b']; //0b0101001000001111;  // D.
-    //displaybuffer[2] = alphafonttable['c']; //0b0100000000111001;  // C.
-    //displaybuffer[3] = alphafonttable['d']; //0b0100000000111000;  // L.
+
+    //fill displaybuffer with spaces to make display blank
     for (i = 0; i < 4; ++i) displaybuffer[i] = alphafonttable[' '];
 
-    //for (i = 0; i < 4; ++i) displaybuffer[i] = alphafonttable[(int)strIn[i]];
+    //populate display buffer with string contents
     i = 0;
     while (i < 4 && strIn[i] != '\0') {
         displaybuffer[i] = alphafonttable[(int)strIn[i]];
         ++i;
     }
-
-    //strIn = "";
 
     // Send commands characters to display over I2C
     i2c_cmd_handle_t cmd4 = i2c_cmd_link_create();
@@ -472,12 +627,8 @@ void alpha_write(double number) {
     ret = i2c_master_cmd_begin(I2C_EXAMPLE_MASTER_NUM, cmd4, 1000 / portTICK_RATE_MS);
     i2c_cmd_link_delete(cmd4);
 
-    //for (int i = 0; i < 8; i++) {
-    //    printf("%04x\n", displaybuffer[i]);
-    //}
-
     if(ret == ESP_OK) {
-    //printf("- wrote: T.D.C.L. \n\n");
+        //printf("- wrote: T.D.C.L. \n\n");
     }
 }
 
@@ -492,15 +643,26 @@ void uart_init(void) {
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
     };
     uart_param_config(UART_NUM_1, &uart_config);
-    uart_set_pin(UART_NUM_1, TXD_PIN, RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    uart_param_config(UART_NUM_2, &uart_config);
+    uart_set_pin(UART_NUM_1, TXD_PIN_FRONT, RXD_PIN_FRONT, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    uart_set_pin(UART_NUM_2, TXD_PIN_SIDE, RXD_PIN_SIDE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     // We won't use a buffer for sending data.
     uart_driver_install(UART_NUM_1, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
+    uart_driver_install(UART_NUM_2, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
 }
 
-int uart_sendData(const char* logName, const char* data)
+int uart_sendData_front(const char* logName, const char* data)
 {
     const int len = strlen(data);
     const int txBytes = uart_write_bytes(UART_NUM_1, data, len);
+    ESP_LOGI(logName, "Wrote %d bytes", txBytes);
+    return txBytes;
+}
+
+int uart_sendData_side(const char* logName, const char* data)
+{
+    const int len = strlen(data);
+    const int txBytes = uart_write_bytes(UART_NUM_2, data, len);
     ESP_LOGI(logName, "Wrote %d bytes", txBytes);
     return txBytes;
 }
@@ -510,12 +672,12 @@ static void tx_task(void *arg)
     static const char *TX_TASK_TAG = "TX_TASK";
     esp_log_level_set(TX_TASK_TAG, ESP_LOG_INFO);
     while (1) {
-        uart_sendData(TX_TASK_TAG, "Hello world");
+        uart_sendData_front(TX_TASK_TAG, "Hello world");
         vTaskDelay(2000 / portTICK_PERIOD_MS);
     }
 }
 
-int rx_task()
+int rx_task_front()
 {
     static const char *RX_TASK_TAG = "RX_TASK";
     esp_log_level_set(RX_TASK_TAG, ESP_LOG_INFO);
@@ -523,44 +685,85 @@ int rx_task()
     int avgDist = 0;
     int distConcat = 0;
 
-    //while (1) {
-        const int rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZE, 100 / portTICK_RATE_MS);
-        if (rxBytes > 0) {
-            data[rxBytes] = 0;
-            //ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
-            //ESP_LOG_BUFFER_HEXDUMP(RX_TASK_TAG, data, rxBytes, ESP_LOG_INFO);
-            //printf("%s\n", data);
-            //ESP_LOGI("test: ", "result: %s\n", data);
-            int i;
-            int distCounter = 0;
+    //read raw input
+    const int rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZE, 100 / portTICK_RATE_MS);
 
-            for (i = 0; i < rxBytes; i++) {
-                if (data[i] == 0x59 && data[i+1] == 0x59) {
-                    break;
-                }
+    //if got data back
+    if (rxBytes > 0) {
+        data[rxBytes] = 0;
+
+        int i;
+        int distCounter = 0;
+
+        //scan for first instance of 2 0x59 bytes in a row (data header)
+        for (i = 0; i < rxBytes; i++) {
+            if (data[i] == 0x59 && data[i+1] == 0x59) {
+                break;
             }
+        }
 
-            for (i+=2; i < rxBytes; i+= 9) {
-                //ESP_LOGI(RX_TASK_TAG, "Lower byte %d: %x", i, data[i]);
-                //ESP_LOGI(RX_TASK_TAG, "Higher byte %d: %x", i, data[i+1]);
-                distConcat = (((uint16_t)data[i+1] << 8) | data[i]);
-                avgDist += distConcat;
-                distCounter++;
+        //until the end of the data stream, read the 3rd and 4th byte in every 9 bytes (distance data)
+        for (i+=2; i < rxBytes; i+= 9) {
 
-                //ESP_LOGI(RX_TASK_TAG, "Distance: %d", distConcat);
-            }
-
-            avgDist /= distCounter;
-
-            ESP_LOGI(RX_TASK_TAG, "Distance: %d", avgDist);
+            distConcat = (((uint16_t)data[i+1] << 8) | data[i]);
+            avgDist += distConcat;
+            distCounter++;
 
         }
 
-        //vTaskDelay(100/portTICK_RATE_MS);
-    //}
+        avgDist /= distCounter;
+
+        //ESP_LOGI(RX_TASK_TAG, "Distance: %d", avgDist);
+
+    }
+
     free(data);
 
-    return distConcat;
+    return avgDist;
+}
+
+int rx_task_side()
+{
+    static const char *RX_TASK_TAG = "RX_TASK";
+    esp_log_level_set(RX_TASK_TAG, ESP_LOG_INFO);
+    uint8_t* data = (uint8_t*) malloc(RX_BUF_SIZE+1);
+    int avgDist = 0;
+    int distConcat = 0;
+
+    const int rxBytes = uart_read_bytes(UART_NUM_2, data, RX_BUF_SIZE, 100 / portTICK_RATE_MS);
+
+    if (rxBytes > 0) {
+        data[rxBytes] = 0;
+
+        int i;
+        int distCounter = 0;
+
+        //scan for first instance of 2 0x59 bytes in a row (data header)
+        for (i = 0; i < rxBytes; i++) {
+            if (data[i] == 0x59 && data[i+1] == 0x59) {
+                break;
+            }
+        }
+
+        //until the end of the data stream, read the 3rd and 4th byte in every 9 bytes (distance data)
+        for (i+=2; i < rxBytes; i+= 9) {
+
+            //concatenate 3rd and 4th bytes into a distance value (cm)
+            distConcat = (((uint16_t)data[i+1] << 8) | data[i]);
+            avgDist += distConcat;
+            distCounter++;
+
+        }
+
+        avgDist /= distCounter;
+
+        //ESP_LOGI(RX_TASK_TAG, "Distance: %d", avgDist);
+
+    }
+
+    free(data);
+
+    return avgDist;
 }
 
 static void mcpwm_example_gpio_initialize(void)
@@ -632,27 +835,32 @@ void calibrateESC() {
  */
 void drive_control(void *arg)
 {
-    //uint32_t angle, count;
 
-    while (1) {
-        //for (count = 0; count < DRIVE_MAX_DEGREE; count++) {
-        //count = 180;
-        //    printf("Angle of rotation: %d\n", count);
-        //    angle = drive_per_degree_init(count);
-        //    printf("pulse width: %dus\n", angle);
+    while (running) {
 
         mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, drive_duty);
 
         //vTaskDelay(100/portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
 
-        int avgDist = rx_task();
-        printf("dist: %d\n", avgDist);
+        int avgDistFront = rx_task_front();
 
-        //if (avgDist < 90) {
-        //    break;
-        //}
+        blackStripeCount = pcnt_read(1000); //.5s delay to read
+        speed = (((double)blackStripeCount / 6.0) * 0.598) / 1; //convert to m/s
+        alpha_write(speed);
 
-        //}
+
+        pid_speed();
+        //printf("%d\n", drive_duty);
+        
+
+        //printf("Front dist: %d; Side dist: %d\n", avgDistFront, side_dist);
+
+        //UNCOMMENT THIS TO MAKE THE CRAWLER STOP BEFORE THE WALL
+        /*
+        if (avgDistFront < 90) {
+            break;
+        }
+        */
     }
 
     mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 1400);
@@ -663,72 +871,59 @@ void drive_control(void *arg)
 /**
  * @brief Configure MCPWM module
  */
+/*
 void steering_control(void *arg)
 {
     uint32_t angle;
     //uint32_t count = 90;
 
-    while (1) {
+    while (running) {
 
-        //for (count = 0; count < STEERING_MAX_DEGREE; count++) {
-            //printf("Angle of rotation: %d\n", count);
-            angle = steering_per_degree_init(angle_duty);
-            //printf("pulse width: %dus\n", angle);
-            mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
+        angle = steering_per_degree_init(angle_duty);
 
-            float xVal, yVal, zVal;
-            getAccel(&xVal, &yVal, &zVal);
+        int avgDistSide = rx_task_side();
+        side_dist = avgDistSide;
+        pid_steering();
 
-            speed += ((xVal-base_x_acceleration) / 10);
+        mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
 
-            printf("%f\n", base_x_acceleration);
-
-            alpha_write(fabs(speed));
-
-
-            vTaskDelay(100/portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
-        //}
-
+        vTaskDelay(100/portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
 
     }
-}
 
+    vTaskDelete(NULL);
+}
+*/
 // PID Functions ///////////////////////////////////////////////////////
 void pid_speed() {
-    double setpoint = 0.1;
-    double previous_error = 0.0;
-    double integral = 0.0;
-    double derivative = 0.0;
     double error = 0.0;
-    double kp = 0.5;
-    double ki = 0.5;
-    double kd = 0.5;
+    double e = 0.0;
+    double kp = 2.0;
+    double ki = 1.0;
+    double kd = 1.0;
+    double output;
 
-    error = setpoint - speed;
-    integral = integral + error * dt;
-    derivative = (error - previous_error) / dt;
-    previous_error = error;
-    output = kp * error + ki * integral + kd * derivative;
-    speed = output;
+    e = setpoint_sp - speed;
+    error = fabs(setpoint_sp - speed);
+    //integral_sp = integral_sp + error * dt;
+    derivative_sp = fabs(error - previous_error_sp) / dt;
+    previous_error_sp = error;
+    output = kp * error + kd * derivative_sp; //+ ki * integral_sp
+
+    printf("%.1f\n", e);
+    
+    // convert output to duty (output will be in the form of distance from wall)
+    
+    if (e > 0) {
+      drive_duty = drive_duty + output;
+    } else if (e < 0) {
+      drive_duty = drive_duty - output;
+    } else {
+      drive_duty = drive_duty;
+    }
+    
 }
 
-void pid_steering() {
-    double setpoint = 90;
-    double previous_error = 0.0;
-    double integral = 0.0;
-    double derivative = 0.0;
-    double error = 0.0;
-    double kp = 0.5;
-    double ki = 0.5;
-    double kd = 0.5;
-
-    error = setpoint - speed;
-    integral = integral + error * dt;
-    derivative = (error - previous_error) / dt;
-    previous_error = error;
-    output = kp * error + ki * integral + kd * derivative;
-    speed = output;
-}
 
 // Timer ///////////////////////////////////////////////////////////////
 /*
@@ -750,6 +945,7 @@ static void inline print_timer_counter(uint64_t counter_value)
  */
 void IRAM_ATTR timer_group0_isr(void *para)
 {
+
     int timer_idx = (int) para;
     
     /* Retrieve the interrupt status and the counter value
@@ -822,38 +1018,49 @@ static void example_tg0_timer_init(int timer_idx,
 static void timer_example_evt_task(void *arg)
 {
     while (1) {
+
         timer_event_t evt;
         xQueueReceive(timer_queue, &evt, portMAX_DELAY);
-        pid_speed();
-        pid_steer();
+
+
     }
 }
 
 void app_main(void)
 {
 
-    // I2C startup routine
+    //networking startup routines
+    wifi_init_sta();
+    udp_init();
+
+    // I2C display startup routine
     i2c_master_init();
     i2c_scanner();
-    accel_init();
     alpha_init();
+    alpha_write(0.0); //set default speed reading to 0
 
-    double dummyY, dummyZ;
     timer_queue = xQueueCreate(10, sizeof(timer_event_t));
     example_tg0_timer_init(TIMER_0, TEST_WITHOUT_RELOAD, TIMER_INTERVAL0_SEC);
 
     // Drive & steering startup routine
     pwm_init();
+    uart_init();
+
+    printf("Calibrating motors...");
     calibrateESC();
 
-    getAccel(&base_x_acceleration, &dummyY, &dummyZ);
+    //wait for "start" signal from Node.js UDP server
+    printf("Waiting for start signal...\n");
+    udp_client_send("Test message");
+    xTaskCreate(udp_client_receive, "udp_client_receive", 4096, NULL, 6, NULL); //also used later for getting stop signal
+    while (!running) {
+        vTaskDelay(100/portTICK_RATE_MS);
+    }
 
-    uart_init();
-    //xTaskCreate(rx_task, "uart_rx_task", 1024*2, NULL, configMAX_PRIORITIES, NULL);
-    //xTaskCreate(tx_task, "uart_tx_task", 1024*2, NULL, configMAX_PRIORITIES-1, NULL);
+    printf("Starting up!");
 
-    printf("Testing servo motor.......\n");
-    xTaskCreate(steering_control, "steering_control", 4096, NULL, 5, NULL);
+    //start up driving tasks
+    //xTaskCreate(steering_control, "steering_control", 4096, NULL, 5, NULL);
     xTaskCreate(drive_control, "drive_control", 4096, NULL, 4, NULL);
-    xTaskCreate(timer_example_evt_task, "timer_evt_task", 2048, NULL, 5, NULL);
+    //xTaskCreate(timer_example_evt_task, "timer_evt_task", 2048, NULL, 3, NULL);
 }
