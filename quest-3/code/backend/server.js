@@ -17,7 +17,7 @@ var urlencodedParser = bodyParser.urlencoded({ extended: false });
 
 // Port and IP of Host
 var PORT = 3333; // external is 3333
-var HOST = "192.168.1.102"; // Kyle's Laptop is .102, Pi is .122
+var HOST = "192.168.1.101"; // Kyle's Laptop is .102, Pi is .122
 
 //Port and IP of Device
 var devPORT = 3333;
@@ -49,6 +49,7 @@ app.get('/alldata', function(req, res){
 
 // Update vibration state
 app.post('/vibration', jsonParser, function(req, res){
+    console.log(req.body);
     var num = req.body.state;
     state = num.toString(10) + state.slice(1, 9);
     // Send through UDP client

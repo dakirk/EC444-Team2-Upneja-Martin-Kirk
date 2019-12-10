@@ -1383,16 +1383,7 @@ void control(void *arg)
                     //mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, drive_duty);
                     //vTaskDelay(100/portTICK_RATE_MS);
                 } else {
-                    //mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, drive_duty - 130);
-                    float curr_front = front;
-                    float curr_side = side;
-                    printf("FRONT: %.2f\n", curr_front);
-                    printf("SIDE: %.2f\n", curr_side);
-                    printf("\n");
-                    //uint32_t angle = steering_per_degree_init(angle_duty);
-                    //mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
-                    adjust(curr_front, curr_side);
-                    vTaskDelay(200/portTICK_RATE_MS);
+
                 }
             } else {
                 //manual mode
@@ -1421,20 +1412,25 @@ void adjust(int f, int s) {
             if (f < 100) {
                 // execute right turn
                 auto_state = 1;
+                printf("f < 100\n");
             } else if (s < (setpoint - 10)) {
                 // execute right tilt
                 angle = steering_per_degree_init(angle_duty - 45);
                 mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
+                printf("s < (setpoint - 10))\n");
             } else if (s > (setpoint + 10)) {
                 // execute left tilt
                 angle = steering_per_degree_init(angle_duty + 45);
                 mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
+                printf("s > (setpoint + 10))\n");
             } else {
                 // maintain orientation
                 angle = steering_per_degree_init(angle_duty);
                 mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
+                printf("else\n");
             }
         } else {
+            printf("TURNING\n");
             if (cycles > 25) {
                 auto_state = 0;
                 angle = steering_per_degree_init(angle_duty);
@@ -1555,8 +1551,8 @@ void app_main(void)
 {
     
     // networking startup routines
-    wifi_init_sta();
-    udp_init();
+    //wifi_init_sta();
+    //udp_init();
     /*
     // I2C display startup routine
     i2c_master_init();
@@ -1566,32 +1562,34 @@ void app_main(void)
 
     */
     // timer
-    timer_queue = xQueueCreate(10, sizeof(timer_event_t));
-    example_tg0_timer_init(TIMER_0, TEST_WITHOUT_RELOAD, TIMER_INTERVAL0_SEC);
+    //timer_queue = xQueueCreate(10, sizeof(timer_event_t));
+    //example_tg0_timer_init(TIMER_0, TEST_WITHOUT_RELOAD, TIMER_INTERVAL0_SEC);
         // Drive & steering startup routine
     printf("starting pwm\n");
-    pwm_init();
+    //pwm_init();
 
     printf("starting uart\n");
-    uart_init();
+    //uart_init();
     printf("Calibrating motors...");
     calibrateESC();
+
+    mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 1270);
 
     
     // wait for "start" signal from Node.js UDP server
     printf("Waiting for start signal...\n");
-    udp_client_send("Test message");
-    xTaskCreate(udp_client_receive, "udp_client_receive", 4096, NULL, 6, NULL); //also used later for getting stop signal
+    //udp_client_send("Test message");
+    //xTaskCreate(udp_client_receive, "udp_client_receive", 4096, NULL, 6, NULL); //also used later for getting stop signal
 
-    //mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 1200);
+    mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 1200);
 
     // start up driving tasks
     printf("Starting up!\n\n\n\n\n\n\n\n\n\n\n\n");
-    xTaskCreate(control, "control", 4096, NULL, 5, NULL);
-    xTaskCreate(rmt_example_nec_rx_task_F, "rmt_nec_rx_task_F", 2048, NULL, 4, NULL);
-    xTaskCreate(rmt_example_nec_tx_task_F, "rmt_nec_tx_task_F", 2048, NULL, 4, NULL);
-    xTaskCreate(rmt_example_nec_rx_task_S, "rmt_nec_rx_task_S", 2048, NULL, 4, NULL);
-    xTaskCreate(rmt_example_nec_tx_task_S, "rmt_nec_tx_task_S", 2048, NULL, 4, NULL);
+    //xTaskCreate(control, "control", 4096, NULL, 5, NULL);
+    //xTaskCreate(rmt_example_nec_rx_task_F, "rmt_nec_rx_task_F", 2048, NULL, 4, NULL);
+    //xTaskCreate(rmt_example_nec_tx_task_F, "rmt_nec_tx_task_F", 2048, NULL, 4, NULL);
+    //xTaskCreate(rmt_example_nec_rx_task_S, "rmt_nec_rx_task_S", 2048, NULL, 4, NULL);
+    //xTaskCreate(rmt_example_nec_tx_task_S, "rmt_nec_tx_task_S", 2048, NULL, 4, NULL);
     //xTaskCreate(ir_rx_task, "ir_rx_task", 4096, NULL, configMAX_PRIORITIES, NULL);
     
 }

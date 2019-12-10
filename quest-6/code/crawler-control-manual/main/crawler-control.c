@@ -155,6 +155,9 @@ static const int RX_BUF_SIZEus = 120;
 // Default ID/color
 #define ID 3
 #define COLOR 'R'
+#define FULLSPEED 1270
+#define LOWSPEED 1280
+#define STOPPED 1400
 
 //control flags
 int prevId = 1; //last beacon seen
@@ -172,7 +175,7 @@ float base_x_acceleration;
 ////WIFI & SOCKET SETUP///////////////////////////////////////////////////////////////////
 
 //socket variables
-  #define HOST_IP_ADDR "192.168.1.122"                    //target server ip
+  #define HOST_IP_ADDR "192.168.43.116"                    //target server ip
 #define PORT 3333                                       //target server port
 char rx_buffer[128];
 char addr_str[128];
@@ -1186,6 +1189,7 @@ char ir_rx_task() {
 
                     sprintf(timeBuf, "%f", splitTime);
                     printf("TIME: %s\n", timeBuf);
+                    alpha_write(splitTime);
                     udp_client_send(timeBuf);
 
                     timer_set_counter_value(TIMER_GROUP_0, TIMER_0, 0);
@@ -1372,22 +1376,37 @@ void calibrateESC() {
 void control(void *arg)
 {
 
-    //mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 1270);
 
     double setpoint_st = 90; // cm from side wall
     uint32_t angle;
-    //mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, drive_duty);
+    mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, FULLSPEED);
     while (1) {
 
         running = inputArr[2]; //index 2 is running or not
 
         if (running) {
 
+            
+
+
             char color = ir_rx_task(); //also handles split time
 
 
             if (isAutonomous) {
+
+                if (color == 'R') {
+                    mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, STOPPED);
+                } else {
+
+                    if (color == 'Y') {
+                        mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, LOWSPEED);
+                    } else if (color == 'G') {
+                        mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, FULLSPEED);
+                    }
+
                     //mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, drive_duty - 130);
+
+
                     float curr_front = front;
                     float curr_side = side;
                     printf("FRONT: %.2f\n", curr_front);
@@ -1397,6 +1416,8 @@ void control(void *arg)
                     //mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, angle);
                     adjust(curr_front, curr_side);
                     vTaskDelay(200/portTICK_RATE_MS);
+                }
+
             } else {
                 //manual mode
 
@@ -1439,8 +1460,7 @@ void control(void *arg)
 }
 
 void adjust(int f, int s) {
-    mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, 1270);
-    float setpoint = 90.0; // cm from side wall
+    float setpoint = 70.0; // cm from side wall
     float walldist = 150;
     uint32_t angle;
     // in all cases, adjust angle duty
@@ -1603,14 +1623,14 @@ void app_main(void)
     // networking startup routines
     wifi_init_sta();
     udp_init();
-    /*
+    
     // I2C display startup routine
     i2c_master_init();
     i2c_scanner();
     alpha_init();
     alpha_write(0.0); //set default speed reading to 0
 
-    */
+    
     // timer
     timer_queue = xQueueCreate(10, sizeof(timer_event_t));
     example_tg0_timer_init(TIMER_0, TEST_WITHOUT_RELOAD, TIMER_INTERVAL0_SEC);
@@ -1633,6 +1653,10 @@ void app_main(void)
 
     // start up driving tasks
     printf("Starting up!\n\n\n\n\n\n\n\n\n\n\n\n");
+
+    timer_set_counter_value(TIMER_GROUP_0, TIMER_0, 0);
+    timer_start(TIMER_GROUP_0, TIMER_0);
+
     xTaskCreate(control, "control", 4096, NULL, 5, NULL);
     xTaskCreatePinnedToCore(rmt_example_nec_rx_task_F, "rmt_nec_rx_task_F", 2048, NULL, 4, NULL, 1);
     xTaskCreatePinnedToCore(rmt_example_nec_tx_task_F, "rmt_nec_tx_task_F", 2048, NULL, 3, NULL, 1);
