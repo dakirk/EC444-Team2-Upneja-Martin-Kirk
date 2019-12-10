@@ -36,7 +36,7 @@ var dirs = [0, 0, 1];
 
 // Publish HTML file
 app.get('/', function(req, res){
-  res.sendFile(__dirname + '/index2.html');
+  res.sendFile(__dirname + '/main.html');
 });
 
 app.get('/logs', function(req, res){
@@ -46,30 +46,22 @@ app.get('/logs', function(req, res){
    });
 });
 
-app.post('/speed', function(req, res) {
-  console.log(req.body);
-  //var speed = req.body.speed;
-  //dirs[0] += speed;
+app.get('/params', function(req, res) {
+
+  var speed = req.param('speed');
+  var steer = req.param('steer');
+
+  res.send("response");
+
+  dirs[0] += parseInt(speed);
+  dirs[1] += parseInt(steer);
 
 
-  //console.log("speed: " + speed);
-  //server.send(dirs, devPORT, devHOST, function(error){});
-});
+  console.log("speed: " + dirs[0] + "steer: " + dirs[1]);
 
-app.post('/steer', function(req, res) {
-  var steer = req.body.steer;
-  dirs[1] += steer;
-
-  console.log("steer: " + steer);
-  server.send(dirs, devPORT, devHOST, function(error){});
-});
-
-app.post('/status', function(req, res) {
-  var status = req.body.status;
-  dirs[2] = status;
-
-  console.log("status: " + status);
-  server.send(dirs, devPORT, devHOST, function(error){});
+  //console.log("speed: " + req);
+  var dataStr = dirs[0].toString() + " " + dirs[1].toString() + " " + dirs[2].toString();
+  server.send(dataStr, devPORT, devHOST, function(error){});
 });
 
 // Send sensor readings to frontend and write JSON to local file

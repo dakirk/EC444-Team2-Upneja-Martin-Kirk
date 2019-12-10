@@ -15,100 +15,161 @@ window.onload = function () {
 	var xhrAddPoint = new XMLHttpRequest();
 	//using response from get request, set chart contents
 	xhrOnLoad.onreadystatechange = function() {
-	    if (this.readyState == 4 && this.status == 200) {
-		var dataText = JSON.parse(xhrOnLoad.responseText);
-		document.getElementById("exampleFormControlTextarea1").innerHTML = JSON.stringify(dataText.slice(dataText.length-30,dataText.length).reverse());
-		console.log(dataText);
-		console.log(dataText[0]);
-		console.log(dataText[0].name);
-		console.log(dataText.length);
-}
+    if (this.readyState == 4 && this.status == 200) {
+  		var dataText = JSON.parse(xhrOnLoad.responseText);
+  		document.getElementById("exampleFormControlTextarea1").innerHTML = JSON.stringify(dataText.slice(dataText.length-30,dataText.length).reverse());
+  		console.log(dataText);
+  		console.log(dataText[0]);
+  		console.log(dataText[0].name);
+  		console.log(dataText.length);
+    }
 	};
+
 	//send get request for file data
-    xhrOnLoad.open("GET", '/logs', true);
+  xhrOnLoad.open("GET", '/logs', true);
 	xhrOnLoad.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 	xhrOnLoad.send();
-    //repeat this function every second to update chart data
-var socket = io();
+
+  //repeat this function every second to update chart data
+  var socket = io();
 	socket.on('message', function(msg){
-		    document.getElementById("exampleFormControlTextarea1").value = JSON.stringify(msg)+document.getElementById("exampleFormControlTextarea1").value;
-});
+		document.getElementById("exampleFormControlTextarea1").value = JSON.stringify(msg)+document.getElementById("exampleFormControlTextarea1").value;
+  });
+}
 
-    }
-    document.onkeydown = function(e) {
-                switch (e.keyCode) {
-                    case 37:
-                    console.log("left!")
-                      document.getElementById("leftBtn").click();
-                      document.getElementById("leftBtn").style.color= "blue";
-                      document.getElementById("rightBtn").style.color= "white";
-                      document.getElementById("upBtn").style.color= "white";
-                      document.getElementById("downBtn").style.color= "white";
+document.onkeydown = function(e) {
+  switch (e.keyCode) {
+    case 37:
+      console.log("left!")
+      document.getElementById("leftBtn").click();
+      document.getElementById("leftBtn").style.color= "blue";
+      document.getElementById("rightBtn").style.color= "white";
+      document.getElementById("upBtn").style.color= "white";
+      document.getElementById("downBtn").style.color= "white";
 
-                        break;
-                    case 38:
-                    console.log("up!")
-                      document.getElementById("upBtn").click();
-                      document.getElementById("leftBtn").style.color= "white";
-                      document.getElementById("rightBtn").style.color= "white";
-                      document.getElementById("upBtn").style.color= "blue";
-                      document.getElementById("downBtn").style.color= "white";
-                        break;
-                    case 39:
-                    console.log("right!")
-                    document.getElementById("rightBtn").click();
-                    document.getElementById("leftBtn").style.color= "white";
-                    document.getElementById("rightBtn").style.color= "blue";
-                    document.getElementById("upBtn").style.color= "white";
-                    document.getElementById("downBtn").style.color= "white";
-                        break;
-                    case 40:
-                    console.log("down!")
-                    document.getElementById("downBtn").click();
-                    document.getElementById("leftBtn").style.color= "white";
-                    document.getElementById("rightBtn").style.color= "white";
-                    document.getElementById("upBtn").style.color= "white";
-                    document.getElementById("downBtn").style.color= "blue ";
-                        break;
-                }
-            };
-            document.onkeyup = function(e) {
-                        switch (e.keyCode) {
-                            case 37:
-                            console.log("left!")
-                              document.getElementById("leftBtn").style.color= "white";
-                              document.getElementById("rightBtn").style.color= "white";
-                              document.getElementById("upBtn").style.color= "white";
-                              document.getElementById("downBtn").style.color= "white";
+      break;
 
-                                break;
-                            case 38:
-                            console.log("up!")
-                              document.getElementById("leftBtn").style.color= "white";
-                              document.getElementById("rightBtn").style.color= "white";
-                              document.getElementById("upBtn").style.color= "white";
-                              document.getElementById("downBtn").style.color= "white";
-                                break;
-                            case 39:
-                            console.log("right!")
-                            document.getElementById("leftBtn").style.color= "white";
-                            document.getElementById("rightBtn").style.color= "white";
-                            document.getElementById("upBtn").style.color= "white";
-                            document.getElementById("downBtn").style.color= "white";
-                                break;
-                            case 40:
-                            console.log("down!")
-                            document.getElementById("leftBtn").style.color= "white";
-                            document.getElementById("rightBtn").style.color= "white";
-                            document.getElementById("upBtn").style.color= "white";
-                            document.getElementById("downBtn").style.color= "white ";
-                                break;
-                        }
-                    };
+    case 38:
+      console.log("up!")
+      document.getElementById("upBtn").click();
+      document.getElementById("leftBtn").style.color= "white";
+      document.getElementById("rightBtn").style.color= "white";
+      document.getElementById("upBtn").style.color= "blue";
+      document.getElementById("downBtn").style.color= "white";
+      break;
+
+    case 39:
+      console.log("right!")
+      document.getElementById("rightBtn").click();
+      document.getElementById("leftBtn").style.color= "white";
+      document.getElementById("rightBtn").style.color= "blue";
+      document.getElementById("upBtn").style.color= "white";
+      document.getElementById("downBtn").style.color= "white";
+      break;
+
+    case 40:
+      console.log("down!")
+      document.getElementById("downBtn").click();
+      document.getElementById("leftBtn").style.color= "white";
+      document.getElementById("rightBtn").style.color= "white";
+      document.getElementById("upBtn").style.color= "white";
+      document.getElementById("downBtn").style.color= "blue ";
+      break;
+
+  }
+};
+document.onkeyup = function(e) {
+  switch (e.keyCode) {
+    case 37:
+      console.log("left!")
+      document.getElementById("leftBtn").style.color= "white";
+      document.getElementById("rightBtn").style.color= "white";
+      document.getElementById("upBtn").style.color= "white";
+      document.getElementById("downBtn").style.color= "white";
+      break;
+
+    case 38:
+      console.log("up!")
+      document.getElementById("leftBtn").style.color= "white";
+      document.getElementById("rightBtn").style.color= "white";
+      document.getElementById("upBtn").style.color= "white";
+      document.getElementById("downBtn").style.color= "white";
+      break;
+
+    case 39:
+      console.log("right!")
+      document.getElementById("leftBtn").style.color= "white";
+      document.getElementById("rightBtn").style.color= "white";
+      document.getElementById("upBtn").style.color= "white";
+      document.getElementById("downBtn").style.color= "white";
+      break;
+
+    case 40:
+      console.log("down!")
+      document.getElementById("leftBtn").style.color= "white";
+      document.getElementById("rightBtn").style.color= "white";
+      document.getElementById("upBtn").style.color= "white";
+      document.getElementById("downBtn").style.color= "white ";
+      break;
+  }
+};
 
 function leftFN() {
   console.log("here");
+
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+         // Typical action to be performed when the document is ready:
+         console.log("meep");
+      }
+  };
+  xhttp.open("GET", "/params?speed=0&steer=-1", true);
+  xhttp.send();
 }
+
+function rightFN() {
+  console.log("here");
+
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+         // Typical action to be performed when the document is ready:
+         console.log("meep");
+      }
+  };
+  xhttp.open("GET", "/params?speed=0&steer=1", true);
+  xhttp.send();
+}
+
+function fwdFN() {
+  console.log("here");
+
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+         // Typical action to be performed when the document is ready:
+         console.log("meep");
+      }
+  };
+  xhttp.open("GET", "/params?speed=1&steer=0", true);
+  xhttp.send();
+}
+
+function bwdFN() {
+  console.log("here");
+
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+         // Typical action to be performed when the document is ready:
+         console.log("meep");
+      }
+  };
+  xhttp.open("GET", "/params?speed=-1&steer=0", true);
+  xhttp.send();
+}
+
 </script>
 <script type="text/javascript">
 
@@ -171,16 +232,16 @@ function imageOnclick() { // Clicking on the image will pause the stream
 
   </div>
   <div class = "row justify-content-md-center" style="height:40vh; width:100vw; background-color:blue;">
-    <button type="button" id="upBtn" class="btn btn-primary" style="margin-left:24.75%; margin-top:1%; width:200px; height: 100px; font-size: 30px;">
+    <button type="button" id="upBtn" onclick="fwdFN()" class="btn btn-primary" style="margin-left:24.75%; margin-top:1%; width:200px; height: 100px; font-size: 30px;">
    Forward!
 </button>
 <button type="button" class="btn btn-primary" style="margin-left: 45%; width: 150px; height: 50px; font-size: 20px;">Split 1 <span class="badge">1:05</span></button>
 
 <br>
-<button type="button" id="leftBtn" onclick="leftFN()"class="btn btn-primary" style="margin-left:19%; margin-right:0%; width:200px; height: 100px; font-size: 30px;">
+<button type="button" id="leftBtn" onclick="leftFN()" class="btn btn-primary" style="margin-left:19%; margin-right:0%; width:200px; height: 100px; font-size: 30px;">
 Left!
 </button>
-<button type="button" id="rightBtn" class="btn btn-primary" style="width:200px; height: 100px; font-size: 30px;">
+<button type="button" id="rightBtn" onclick="rightFN()" class="btn btn-primary" style="width:200px; height: 100px; font-size: 30px;">
 Right!
 </button>
 <button type="button" class="btn btn-primary" style="margin-left: 38.5%; width: 150px; height: 50px; font-size: 20px;">Split 2 <span class="badge">1:05</span></button>
@@ -188,7 +249,7 @@ Right!
 
 <br />
 
-<button type="button" id="downBtn" class="btn btn-primary" style="margin-left:24.75%;width:200px; height: 100px; font-size: 30px;">
+<button type="button" id="downBtn" onclick="bwdFN()" class="btn btn-primary" style="margin-left:24.75%;width:200px; height: 100px; font-size: 30px;">
 Backward!
 </button>
 <button type="button" class="btn btn-primary" style="margin-left: 45%; width: 150px; height: 50px; font-size: 20px;">Split 3 <span class="badge">1:05</span></button>
@@ -261,6 +322,7 @@ $   (document).ready(function() {
 <script src="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/js/bootstrap4-toggle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-table/1.10.1/bootstrap-table.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
+<script 
 
 </body>
 </html>
