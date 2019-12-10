@@ -16,12 +16,12 @@ var header;
 
 // Port and IP of Host
 var PORT = 3333; // external is 3333
-var HOST = "192.168.1.142"; // David's laptop is .101, Kyle's Laptop is .102, Pi is .122, Ayush's Laptop is .142
+var HOST = "192.168.1.122"; // David's laptop is .101, Kyle's Laptop is .102, Pi is .122, Ayush's Laptop is .142
 const code = "smartkey";
 
 //Port and IP of Device
 var devPORT = 3333;
-var devHOST = "192.168.1.100"
+var devHOST = "192.168.1.129"
 
 // TingoDB
 var Engine = require('tingodb')(),
@@ -65,7 +65,7 @@ app.get('/params', function(req, res) {
     console.log("mep");
     dirs[2] = 1 - dirs[2];
   }
-
+  
 
 
   //console.log("speed: " + dirs[0] + "steer: " + dirs[1]);
