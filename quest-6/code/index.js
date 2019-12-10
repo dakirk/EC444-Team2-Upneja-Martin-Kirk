@@ -50,6 +50,8 @@ app.get('/params', function(req, res) {
 
   var speed = parseInt(req.param('speed'));
   var steer = parseInt(req.param('steer'));
+  var start = parseInt(req.param('start'));
+  console.log(start);
 
   res.send("response");
 
@@ -57,6 +59,11 @@ app.get('/params', function(req, res) {
 
   if (Math.abs(dirs[1] + steer) <= 3) {
     dirs[1] += steer;
+  }
+
+  if (start) {
+    console.log("mep");
+    dirs[2] = 1 - dirs[2];
   }
   
 
@@ -78,6 +85,12 @@ server.on('message', function (message, remote) {
   devHOST = remote.address;
 
   console.log(devHOST + ":" + devPORT + " time: " + splitTime);
+
+  if (splitTime != NaN) {
+    var d = new Date();
+    var timeData = {"timestamp": d.toLocaleString(), "splitTime": splitTime};
+    logs.insert(timeData);
+  }
 
   /*
   // Parse message into JSON object

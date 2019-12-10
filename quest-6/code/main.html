@@ -39,6 +39,16 @@ window.onload = function () {
 
 document.onkeydown = function(e) {
   switch (e.keyCode) {
+    case 32:
+      console.log("stop!")
+      document.getElementById("stopBtn").click();
+      document.getElementById("leftBtn").style.color= "white";
+      document.getElementById("rightBtn").style.color= "white";
+      document.getElementById("upBtn").style.color= "white";
+      document.getElementById("downBtn").style.color= "white";
+      document.getElementById("stopBtn").style.color="blue";
+
+      break;
     case 37:
       console.log("left!")
       document.getElementById("leftBtn").click();
@@ -46,6 +56,7 @@ document.onkeydown = function(e) {
       document.getElementById("rightBtn").style.color= "white";
       document.getElementById("upBtn").style.color= "white";
       document.getElementById("downBtn").style.color= "white";
+      document.getElementById("stopBtn").style.color="white";
 
       break;
 
@@ -56,6 +67,7 @@ document.onkeydown = function(e) {
       document.getElementById("rightBtn").style.color= "white";
       document.getElementById("upBtn").style.color= "blue";
       document.getElementById("downBtn").style.color= "white";
+      document.getElementById("stopBtn").style.color="white";
       break;
 
     case 39:
@@ -65,6 +77,7 @@ document.onkeydown = function(e) {
       document.getElementById("rightBtn").style.color= "blue";
       document.getElementById("upBtn").style.color= "white";
       document.getElementById("downBtn").style.color= "white";
+      document.getElementById("stopBtn").style.color="white";
       break;
 
     case 40:
@@ -74,6 +87,7 @@ document.onkeydown = function(e) {
       document.getElementById("rightBtn").style.color= "white";
       document.getElementById("upBtn").style.color= "white";
       document.getElementById("downBtn").style.color= "blue ";
+      document.getElementById("stopBtn").style.color="white";
       break;
 
   }
@@ -86,6 +100,7 @@ document.onkeyup = function(e) {
       document.getElementById("rightBtn").style.color= "white";
       document.getElementById("upBtn").style.color= "white";
       document.getElementById("downBtn").style.color= "white";
+      document.getElementById("stopBtn").style.color="white";
       break;
 
     case 38:
@@ -94,6 +109,7 @@ document.onkeyup = function(e) {
       document.getElementById("rightBtn").style.color= "white";
       document.getElementById("upBtn").style.color= "white";
       document.getElementById("downBtn").style.color= "white";
+      document.getElementById("stopBtn").style.color="white";
       break;
 
     case 39:
@@ -102,6 +118,7 @@ document.onkeyup = function(e) {
       document.getElementById("rightBtn").style.color= "white";
       document.getElementById("upBtn").style.color= "white";
       document.getElementById("downBtn").style.color= "white";
+      document.getElementById("stopBtn").style.color="white";
       break;
 
     case 40:
@@ -110,6 +127,16 @@ document.onkeyup = function(e) {
       document.getElementById("rightBtn").style.color= "white";
       document.getElementById("upBtn").style.color= "white";
       document.getElementById("downBtn").style.color= "white ";
+      document.getElementById("stopBtn").style.color="white";
+      break;
+
+    case 32:
+      console.log("stop!")
+      document.getElementById("leftBtn").style.color= "white";
+      document.getElementById("rightBtn").style.color= "white";
+      document.getElementById("upBtn").style.color= "white";
+      document.getElementById("downBtn").style.color= "white ";
+      document.getElementById("stopBtn").style.color="white";
       break;
   }
 };
@@ -124,7 +151,7 @@ function leftFN() {
          console.log("meep");
       }
   };
-  xhttp.open("GET", "/params?speed=0&steer=-1", true);
+  xhttp.open("GET", "/params?speed=0&steer=-1&start=0", true);
   xhttp.send();
 }
 
@@ -138,7 +165,7 @@ function rightFN() {
          console.log("meep");
       }
   };
-  xhttp.open("GET", "/params?speed=0&steer=1", true);
+  xhttp.open("GET", "/params?speed=0&steer=1&start=0", true);
   xhttp.send();
 }
 
@@ -152,7 +179,21 @@ function fwdFN() {
          console.log("meep");
       }
   };
-  xhttp.open("GET", "/params?speed=1&steer=0", true);
+  xhttp.open("GET", "/params?speed=1&steer=0&start=0", true);
+  xhttp.send();
+}
+
+function stopFN() {
+  console.log("here");
+
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+         // Typical action to be performed when the document is ready:
+         console.log("meep");
+      }
+  };
+  xhttp.open("GET", "/params?speed=0&steer=0&start=1", true);
   xhttp.send();
 }
 
@@ -166,7 +207,7 @@ function bwdFN() {
          console.log("meep");
       }
   };
-  xhttp.open("GET", "/params?speed=-1&steer=0", true);
+  xhttp.open("GET", "/params?speed=-1&steer=0&start=0", true);
   xhttp.send();
 }
 
@@ -244,7 +285,8 @@ Left!
 <button type="button" id="rightBtn" onclick="leftFN()" class="btn btn-primary" style="width:200px; height: 80px; font-size: 30px;">
 Right!
 </button>
-<button type="button" class="btn btn-primary" style="margin-left: 36%; width: 150px; height: 50px; font-size: 20px;">Split 2 <span class="badge">1:05</span></button>
+<button type="button" id="stopBtn" onclick="stopFN()" class="btn btn-primary" style="width:200px; height: 80px; font-size: 30px; margin-left: 10%;">Stop!</button>
+<button type="button" class="btn btn-primary" style="margin-left: 10%; width: 150px; height: 50px; font-size: 20px;">Split 2 <span class="badge">1:05</span></button>
 
 
 <br />
