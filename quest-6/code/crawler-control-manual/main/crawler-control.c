@@ -170,7 +170,7 @@ float base_x_acceleration;
 ////WIFI & SOCKET SETUP///////////////////////////////////////////////////////////////////
 
 //socket variables
-#define HOST_IP_ADDR "192.168.1.122"                    //target server ip
+  #define HOST_IP_ADDR "192.168.1.122"                    //target server ip
 #define PORT 3333                                       //target server port
 char rx_buffer[128];
 char addr_str[128];
@@ -201,7 +201,7 @@ void adjust(int setpoint, int front, int side);
 ////WIFI SETUP/////////////////////////////////////////////////////////////////////
 
 //wifi event handler
-static void event_handler(void* arg, esp_event_base_t event_base, 
+static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
 {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
@@ -238,7 +238,7 @@ void wifi_init_sta(void) {
     printf("Wifi setup part 3\n");
 
     ESP_ERROR_CHECK(ret);
-    
+
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
 
     s_wifi_event_group = xEventGroupCreate();
@@ -319,7 +319,7 @@ static void udp_client_receive() {
 
                 // Extract the first token
                 char * token = strtok(rx_buffer, " ");
-                
+
                 // loop through the string to extract all other tokens
                 int i = 0;
                 while(token != NULL) {
@@ -477,7 +477,7 @@ static void pcnt_example_init(void)
 }
 
 static int pcnt_read(int delay) {
-    
+
     pcnt_example_init();
 
     int16_t count = 0;
@@ -752,7 +752,7 @@ char ir_rx_task() {
 
                     char timeBuf[10];
 
-                    
+
                     double splitTime;
                     timer_get_counter_time_sec(TIMER_GROUP_0, TIMER_0, &splitTime);
 
@@ -775,7 +775,7 @@ char ir_rx_task() {
 
             return lightColor;
 
-            
+
         } else {
             printf("Invalid checksum!");
         }
@@ -949,7 +949,7 @@ void control(void *arg)
     while (1) {
 
         running = inputArr[2]; //index 2 is running or not
-        
+
         if (running) {
 
             char color = ir_rx_task(); //also handles split time
@@ -992,7 +992,7 @@ void control(void *arg)
 
         }
 
-        
+
 
         /*
         int avgDistFront = 0;//rx_task_front();
@@ -1002,7 +1002,7 @@ void control(void *arg)
         vTaskDelay(100/portTICK_RATE_MS);     //Add delay, since it takes time for servo to rotate, generally 100ms/60degree rotation at 5V
         */
     }
-    
+
     vTaskDelete(NULL);
 }
 
@@ -1056,19 +1056,19 @@ void IRAM_ATTR timer_group0_isr(void *para)
 {
 
     int timer_idx = (int) para;
-    
+
     /* Retrieve the interrupt status and the counter value
      from the timer that reported the interrupt */
     timer_intr_t timer_intr = timer_group_intr_get_in_isr(TIMER_GROUP_0);
     uint64_t timer_counter_value = timer_group_get_counter_value_in_isr(TIMER_GROUP_0, timer_idx);
-    
+
     /* Prepare basic event data
      that will be then sent back to the main program task */
     timer_event_t evt;
     evt.timer_group = 0;
     evt.timer_idx = timer_idx;
     evt.timer_counter_value = timer_counter_value;
-    
+
     /* Clear the interrupt
      and update the alarm time for the timer with without reload */
     if (timer_intr & TIMER_INTR_T0) {
@@ -1079,11 +1079,11 @@ void IRAM_ATTR timer_group0_isr(void *para)
     } else {
         evt.type = -1; // not supported even type
     }
-    
+
     /* After the alarm has been triggered
      we need enable it again, so it is triggered the next time */
     timer_group_enable_alarm_in_isr(TIMER_GROUP_0, timer_idx);
-    
+
     /* Now just send the event data back to the main program task */
     xQueueSendFromISR(timer_queue, &evt, NULL);
 }
@@ -1107,23 +1107,23 @@ static void example_tg0_timer_init(int timer_idx,
     config.intr_type = TIMER_INTR_LEVEL;
     config.auto_reload = auto_reload;
     timer_init(TIMER_GROUP_0, timer_idx, &config);
-    
+
     /* Timer's counter will initially start from value below.
      Also, if auto_reload is set, this value will be automatically reload on alarm */
     timer_set_counter_value(TIMER_GROUP_0, timer_idx, 0x00000000ULL);
-    
+
     /* Configure the alarm value and the interrupt on alarm. */
     timer_set_alarm_value(TIMER_GROUP_0, timer_idx, timer_interval_sec * TIMER_SCALE);
     timer_enable_intr(TIMER_GROUP_0, timer_idx);
     timer_isr_register(TIMER_GROUP_0, timer_idx, timer_group0_isr, (void *) timer_idx, ESP_INTR_FLAG_IRAM, NULL);
-    
+
     timer_start(TIMER_GROUP_0, timer_idx);
 
 }
 
 void app_main(void)
 {
-    
+
     // networking startup routines
     wifi_init_sta();
     udp_init();
@@ -1147,7 +1147,7 @@ void app_main(void)
     printf("Calibrating motors...");
     calibrateESC();
 
-    
+
     // wait for "start" signal from Node.js UDP server
     printf("Waiting for start signal...\n");
     udp_client_send("Test message");
@@ -1159,6 +1159,5 @@ void app_main(void)
     printf("Starting up!\n\n\n\n\n\n\n\n\n\n\n\n");
     xTaskCreate(control, "control", 4096, NULL, 5, NULL);
     //xTaskCreate(ir_rx_task, "ir_rx_task", 4096, NULL, configMAX_PRIORITIES, NULL);
-    
-}
 
+}
