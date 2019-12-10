@@ -48,19 +48,24 @@ app.get('/logs', function(req, res){
 
 app.get('/params', function(req, res) {
 
-  var speed = req.param('speed');
-  var steer = req.param('steer');
+  var speed = parseInt(req.param('speed'));
+  var steer = parseInt(req.param('steer'));
 
   res.send("response");
 
-  dirs[0] += parseInt(speed);
-  dirs[1] += parseInt(steer);
+  dirs[0] += speed;
+
+  if (Math.abs(dirs[1] + steer) <= 3) {
+    dirs[1] += steer;
+  }
+  
 
 
-  console.log("speed: " + dirs[0] + "steer: " + dirs[1]);
+  //console.log("speed: " + dirs[0] + "steer: " + dirs[1]);
 
   //console.log("speed: " + req);
   var dataStr = dirs[0].toString() + " " + dirs[1].toString() + " " + dirs[2].toString();
+  console.log(dataStr + " - " + devHOST + ":" + devPORT);
   server.send(dataStr, devPORT, devHOST, function(error){});
 });
 
@@ -69,14 +74,16 @@ server.on('message', function (message, remote) {
 
   var splitTime = parseFloat(message);
 
+  devPORT = remote.port;
+  devHOST = remote.address;
+
   console.log(devHOST + ":" + devPORT + " time: " + splitTime);
 
   /*
   // Parse message into JSON object
   var request = JSON.parse(message.toString());
   // Update device port and host
-  devPORT = remote.port;
-  devHOST = remote.address;
+
   // Query the fobID in the user database
   users.findOne({"fobID": request["fob_id"]}, function(err, item) {
     // if fobID and code are valid
