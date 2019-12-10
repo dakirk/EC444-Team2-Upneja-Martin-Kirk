@@ -232,12 +232,7 @@ function createImageLayer() {
   img.src = "http://192.168.1.122:8080/?action=snapshot&n=" + (++imageNr);
   var webcam = document.getElementById("webcam");
   webcam.insertBefore(img, webcam.firstChild);
-  var qr = new QCodeDecoder();
   console.log("testing1");
-  qr.decodeFromImage(https://cirocosta.github.io/qcode-decoder/dist/assets/qrcode.png,function(er,res){
-    console.log(res);
-    console.log("here");
-  });
 }
 
 // Two layers are always present (except at the very beginning), to avoid flicker
