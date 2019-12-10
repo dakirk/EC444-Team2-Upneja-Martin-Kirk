@@ -262,31 +262,32 @@ function imageOnclick() { // Clicking on the image will pause the stream
 <body onload="createImageLayer();">
   <div class="container" style="height:100vh; width:100vw" >
   <div class ="row" style="height:40vh; width:100vw; background-color:green">
-    <div class="row" style="height:50vh; width:50vw; text-align: center; display: inline-block; margin-top: 10%; margin-left: 17%"
+    <div class="row" style="height:30vh; width:50vw; text-align: center; display: inline-block; margin-top: 5%; margin-left: 17%"
     <div id="webcam"><noscript><img src="http://192.168.1.122:8080/?action=snapshot" style="width: 500px; height: 600px;"/></noscript></div>
 
 
   </div>
   <div class = "row justify-content-md-center" style="height:60vh; width:100vw; background-color:blue;">
-    <button type="button" id="upBtn" onclick="fwdFN()" class="btn btn-primary" style="margin-left:24.75%; margin-top:1%; width:200px; height: 80px; font-size: 30px;">
+    <button type="button" id="upBtn" onclick="fwdFN()" class="btn btn-primary" style="margin-left:24.75%; margin-top:5%; width:200px; height: 80px; font-size: 30px;">
    Forward!
 </button>
-<button type="button" class="btn btn-primary" style="margin-left: 45%; width: 150px; height: 50px; font-size: 20px;">Split 1 <span class="badge">1:05</span></button>
-
 <br>
 <button type="button" id="leftBtn" onclick="rightFN()" class="btn btn-primary" style="margin-left:18%; margin-right:0%; width:200px; height: 80px; font-size: 30px;">
 Left!
-</button>
+</button> &nbsp;&nbsp;&nbsp;&nbsp;
 <button type="button" id="rightBtn" onclick="leftFN()" class="btn btn-primary" style="width:200px; height: 80px; font-size: 30px;">
 Right!
 </button>
+
 <button type="button" id="stopBtn" onclick="stopFN()" class="btn btn-primary" style="width:200px; height: 80px; font-size: 30px; margin-left: 10%;">Stop!</button>
-<button type="button" class="btn btn-primary" style="margin-left: 10%; width: 150px; height: 50px; font-size: 20px;">Split 2 <span class="badge">1:05</span></button>
+<div class="row justify-content-md-right" style="height:41vh; width: 30vw; float:right; margin-right:3px ">
+<div class="form-group">
+<label for="exampleFormControlTextarea1">Fob Unlock Logs</label>
+    <textarea class="form-control" id="exampleFormControlTextarea1" rows="15" cols="2"></textarea>
+</div>
+</div>
 
-
-<br />
-
-<button type="button" id="downBtn" onclick="bwdFN()" class="btn btn-primary" style="margin-left:24.75%;width:200px; height: 80px; font-size: 30px;">
+<button type="button" id="downBtn" onclick="bwdFN()" class="btn btn-primary" style="margin-left:24.75%; margin-top:.5%;width:200px; height: 80px; font-size: 30px;">
 Backward!
 </button>
 <button type="button" class="btn btn-primary" style="margin-left: 45%; width: 150px; height: 50px; font-size: 20px;">Split 3 <span class="badge">1:05</span></button>
@@ -359,7 +360,7 @@ $   (document).ready(function() {
 <script src="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/js/bootstrap4-toggle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-table/1.10.1/bootstrap-table.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
-<script 
+<script
 
 </body>
 </html>
