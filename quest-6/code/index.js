@@ -36,7 +36,7 @@ var dirs = [0, 0, 1];
 
 // Publish HTML file
 app.get('/', function(req, res){
-  res.sendFile(__dirname + '/main.html');
+  res.sendFile(__dirname + '/index2.html');
 });
 
 app.get('/logs', function(req, res){
@@ -47,12 +47,13 @@ app.get('/logs', function(req, res){
 });
 
 app.post('/speed', function(req, res) {
-  var speed = req.body.speed;
-  dirs[0] += speed;
+  console.log(req.body);
+  //var speed = req.body.speed;
+  //dirs[0] += speed;
 
 
-  console.log("speed: " + speed);
-  server.send(dirs, devPORT, devHOST, function(error){});
+  //console.log("speed: " + speed);
+  //server.send(dirs, devPORT, devHOST, function(error){});
 });
 
 app.post('/steer', function(req, res) {
