@@ -21,7 +21,7 @@ const code = "smartkey";
 
 //Port and IP of Device
 var devPORT = 3333;
-var devHOST = "192.168.1.129"
+var devHOST = "192.168.1.100"
 
 // TingoDB
 var Engine = require('tingodb')(),
@@ -65,7 +65,7 @@ app.get('/params', function(req, res) {
     console.log("mep");
     dirs[2] = 1 - dirs[2];
   }
-  
+
 
 
   //console.log("speed: " + dirs[0] + "steer: " + dirs[1]);
