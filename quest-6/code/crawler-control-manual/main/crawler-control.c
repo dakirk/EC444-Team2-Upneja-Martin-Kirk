@@ -170,7 +170,7 @@ float base_x_acceleration;
 ////WIFI & SOCKET SETUP///////////////////////////////////////////////////////////////////
 
 //socket variables
-#define HOST_IP_ADDR "192.168.1.101"                    //target server ip
+#define HOST_IP_ADDR "192.168.1.122"                    //target server ip
 #define PORT 3333                                       //target server port
 char rx_buffer[128];
 char addr_str[128];
