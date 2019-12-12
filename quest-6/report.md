@@ -5,7 +5,7 @@ Authors: Kyle Martin, David Kirk, Ayush Upneja
 
 ## Summary
 
-In this skill, we designed a crawler that navigated a course with 3 turns, 2 of which had to be executed autonomously.  The course also had three stoplight beacons.  When the crawler reached these beacons, it would either stop, slow down, or continue moving, depending on whether or not the IR signal was red, yellow, or green.  Upon reaching these beacons, the ESP32 on the crawler sent split times to the server and stored them in a TingoDB database.  After reaching the third beacon, the crawler switched into manual mode and we drove it to the finish via our web client.  
+In this skill, we designed a crawler that navigated a course with 3 turns, 2 of which had to be executed autonomously.  The course also had three stoplight beacons. When the crawler reached these beacons, it would either stop, slow down, or continue moving, depending on whether or not the IR signal was red, yellow, or green. Upon reaching these beacons, the ESP32 on the crawler sent split times to the server and stored them in a TingoDB database. After reaching the third beacon, the crawler switched into manual mode and we drove it to the finish via our web client.  
 
 ## Evaluation Criteria
 
@@ -15,7 +15,7 @@ In this skill, we designed a crawler that navigated a course with 3 turns, 2 of 
 - All web interfaces in same browser window 1
 - Functional range sensors 1
 - Functional collision sensor 1
-- Functional PID control on variable speed setpoint 1
+- Functional PID control on variable speed setpoint 0
 - Functional IR sensor 1
 - Alpha display shows last beacon split time 1
 - No collisions in runs 1
@@ -23,10 +23,10 @@ In this skill, we designed a crawler that navigated a course with 3 turns, 2 of 
 - Autonomous: makes turns, L or R turns around obstacles 1
 - IR receiver on car receives data from beacon 1
 - Car conforms to IR traffic signals (stop and go) 1
-- Browser or Rpi decodes and displays value of QR code
+- Browser or Rpi decodes and displays value of QR code 0
 - System records split time to DB 1
-- Able to remote drive vehicle
-- Completes the course without nudges or touches
+- Able to remote drive vehicle 1
+- Completes the course without nudges or touches 10
 
 ## Solution Design
 
@@ -36,15 +36,17 @@ The crawler uses the chassis we were given for Quest 4, with several additions. 
 
 ### Firmware
 
-The firmware executes three types of tasks: one drive control task, two RMT TX tasks, and two RMT RX tasks.  For range sensing, we used two HC-SRO4 ultrasonic sensors, one on the front and one on the side.  Each of these sensors required an RX and a TX task because they send and recieve signals to determine range.  In order to improve accuracy of the sensors, we pinned the control task to core 1 of the ESP32 and the RX/TX tasks to core 0 of the ESP32.
+Upon startup, the ESP32 runs a series of startup tasks, including initializing wifi, UDP, UART, I2C, RMT, and a timer. It also runs a motor calibration routine, in order to ensure that the drive motors function correctly. After all of this finishes, it starts up a timer and initializes its parallel tasks.
 
-The control task first reads the IR reciever to determine if there is a beacon signal present.   If so, the ESP32 sends a datagram to the server via UDP that contains the split time.  Then, the motors are set to the appropriate duty:  1270 if green, 1280 if yellow, and 1400 if red.  Then, the front distance and the side distance, which are read and updated every tenth of a second into global variables, are passed to an adjust function, which controls any updates to the turning servo.
+The firmware executes four types of tasks: one drive control task, one UDP RX task, two RMT RX tasks, and two RMT TX tasks.  For range sensing, we used two HC-SRO4 ultrasonic sensors, one on the front and one on the side. Each of these sensors required an RMT RX and a TX task because they send and recieve signals to determine range.  In order to improve accuracy of the sensors, we pinned the RMT-related tasks to Core 1, since it conflicts with wifi when it runs on Core 0.
 
-The adjust function first checks if the distance from the front wall is between 150 and 160 centimeters.  In this case, the function sets a state boolean to 1, which switches the turning state.   This state will execute for 20 time cycles, which in our code would be 4 seconds total.  In this state, the angle of the turning servo is set to zero, which is a right turn.  Upon completion of the turn, the state will switch back to the straight line state.
+The control task first reads the IR reciever to determine if there is a beacon signal present. If the beacon detected is different from the last beacon it saw, the ESP32 stops the timer, sends a message to the server via UDP containing the split time, and resets the timer. If the beacon is transmitting a valid stoplight signal, the motors are set to the appropriate duty:  1270 if green, 1280 if yellow, and 1400 if red.  Then, the front distance and the side distance, which are read and updated every tenth of a second into global variables, are passed to an adjust function, which controls any updates to the turning servo.
 
-In the straight line state, the side distance is checked.  If the distance is greater than 80, the servo will perform a 45 degree left tilt.  If the distance is less than 60, the servo will perform a 45 degree right tilt.  Otherwise, the angle will remain at 90 degrees.
+The adjust function first checks if the distance from the front wall is between 150 and 160 centimeters.  In this case, the function sets a state boolean to true, which switches the turning state. This state will execute for 20 time cycles, which in our code would be 4 seconds total.  In this state, the angle of the turning servo is set to zero, which is a right turn.  Upon completion of the turn, the state will switch back to the straight line state.
 
-Upon reception of the signal from the third beacon, the crawler switches to manual mode.  For steering and speed, the integer values sent from the server are in the range of -3 and 3 for speed and -1 and 1 for steering.  These signals are multiplied by 30 and -30 for steering and speed, respectively, to be added to a duty of 1400 for speed duty and a value of 90 for the angle.  
+In the straight line state, the side distance is checked. If the distance is greater than 80, the servo will perform a 45 degree left tilt. If the distance is less than 60, the servo will perform a 45 degree right tilt. Otherwise, the angle will remain at 90 degrees.
+
+Upon reception of the signal from the third beacon, the crawler switches to manual mode. While in manual mode, it reacts to signals received over UDP from the Raspberry Pi server. For steering and speed, the integer values sent from the server are in the range of -3 and 3 for steering and unlimited for speed. These signals are multiplied by 30 and -30 for steering and speed, respectively, to be added to a duty of 1400 for speed duty and a value of 90 for the angle. It also can receive a start/stop command as a boolean, with false for stopped and true for running. Unlike the other signals, the crawler will react to a stop command while in automatic mode.
 
 
 ### Backend
