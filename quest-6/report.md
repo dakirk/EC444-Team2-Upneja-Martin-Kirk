@@ -55,6 +55,8 @@ We based this code off of the Quest 5 Node.js server, which uses TingoDB to stor
 
 ### Frontend
 
+There were several components to the frontend. The first component was the steraming. We used the MJPG streaming package, and the javascript example to embed the livestream directly into our database. We tinkered around with the controls, reducing the scaling and optimizing frames per second to try to get it as smooth as possible. The second component was the keyboard input. We used onkeypress and onkeydown too signify to increase/decrease speed and control steering. We also used this for stopping the vehicle. The third component was the recording of split times in the browser. We were able to retrieve the split times from the database and output them in the console log, but were unable to fully display them in the textbox due to JSON errors. That's something that we would be able to fix given a bit more time. We also tried many times to get the QR code reading, using a variety of mechanisms, from reading the PNG directly in the Pi's terminal, to JSQR and QCode Decoder. Nothing was very functional so we had to prioritize our tasks. We are streaming multiple snapshots, so once we figure out how to decode PNGs directly in the browser it should be fairly easy to implement the solution.
+
 
 
 ## Sketches and Photos
@@ -62,7 +64,7 @@ We based this code off of the Quest 5 Node.js server, which uses TingoDB to stor
 ![Image](./images/IMG_4127.JPG);
 
 ## Supporting Artifacts
-Video Link: 
+Video Link: https://www.youtube.com/watch?v=rA1G7HUVpqw&feature=youtu.be
 
 ## References
 - esp-idf/examples/peripherals/rmt_nec_tx_rx/main
